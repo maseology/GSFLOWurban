@@ -1,8 +1,4 @@
-https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html
-
-
-USGS Software User Rights Notice
-
+# USGS Software User Rights Notice
 
 Software and related material (data and (or) documentation), contained in or furnished in connection with a software distribution, are made available by the U.S. Geological Survey (USGS) to be used in the public interest and in the advancement of science. You may, without any fee or cost, use, copy, modify, or distribute this software, and any derivative works thereof, and its supporting documentation, subject to the following restrictions and understandings.
 
