@@ -59,7 +59,7 @@ _none_ | srunoff_urban_mm.f90
 
 ### License
 
-GSFLOWurban hosted on GitHub is released under the GNU GPL license. This code extension follows strict adherence to the USGS [Software User Rights Notice](/USGS Software User Rights Notice.md), which can also be found [here](https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html).
+GSFLOWurban hosted on GitHub is released under the GNU GPL license. This code extension follows strict adherence to the USGS [Software User Rights Notice](/USGS_Software_User_Rights_Notice.md), which can also be found [here](https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html).
 
 ### Contributors
 
