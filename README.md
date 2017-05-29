@@ -4,7 +4,7 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 
 Built upon (and backward compatible to) GSFLOW version 1.2.1.
 
-*Model capabilities:*
+**Model capabilities:**
 
  * Division of HRU into three independent water balance features:  
    1. _Connected_ impervious areas representative of on-grade impervious areas
@@ -23,7 +23,7 @@ Built upon (and backward compatible to) GSFLOW version 1.2.1.
 ...can be found [here](/doc/input_instructions.pdf).
 
 ### Current (Beta) version 0.1
-*Task list:*
+**Task list:**
 
  - [x] Write & compile code
  - [x] Preliminary code testing (check for water balance closure)
