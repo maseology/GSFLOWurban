@@ -4,7 +4,7 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 
 Built upon (and backward compatible to) GSFLOW version 1.2.1.
 
-Model capabilities:
+*Model capabilities:*
 
  * Division of HRU into three independent water balance features:  
    1. _Connected_ impervious areas representative of on-grade impervious areas
@@ -14,7 +14,7 @@ Model capabilities:
  * An infiltration storage feature used to investigate sustainable development strategies
  * A variety of logical pathways needed to routed water among various storage reservoirs
  * Groundwater interaction with:  
-   1. Infiltration storage reservoirs in order to quantify long-term storage potential
+   1. Infiltration storage reservoirs in order to quantify long-term storage/retention potential
    2. Sewershed elements to simulation groundwater infiltration (i.e., storm sewer I&I)
 
 ![GSFLOW urban flow pathways](/doc/pathways_170515.png)
@@ -23,7 +23,7 @@ Model capabilities:
 ...can be found [here](/doc/input_instructions.pdf).
 
 ### Current (Beta) version 0.1
-##### Task list:
+*Task list:*
 
  - [x] Write & compile code
  - [x] Preliminary code testing (check for water balance closure)
@@ -38,7 +38,7 @@ The following table lists the model files that have been altered/modified as par
 
 Not all changes were implemented for the creation of GSFLOW urban, but modifications to the code were added to improve the legibility of simulation warning messages, such as increasing the digits when writing to the console
 
-Users are free to recompile their own version of GSFLOW urban by simply replacing their GSFLOW project files with the files listed below. The contributors have assured that all changes made to the GSFLOW will not affect the original code, meaning the GSFLOW urban will remain backward compatible such that any previously-built GSFLOW model will continue to run using GSFLOW urban.
+Users are free to recompile their own version of GSFLOW urban by simply replacing their GSFLOW project files with the files listed below. The contributors have assured that all changes made to the GSFLOW code will not affect the original code implementation, meaning the GSFLOW urban will remain backward compatible such that any previously-built GSFLOW model will continue to run using GSFLOW urban.
 
 Original model file | Modified model file
 ------------------- | -------------------
@@ -57,15 +57,15 @@ water_balance.f90 | water_balance_mm.f90
 _none_ | srunoff_urban_mm.f90
 
 
-### License:
+### License
 
-GSFLOWurban hosted on GitHub is released under the GNU GPL license. This code extension follows strict adherence to the USGS [Software User Rights Notice](), which can also be found [here](https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html).
+GSFLOWurban hosted on GitHub is released under the GNU GPL license. This code extension follows strict adherence to the USGS [Software User Rights Notice](USGS Software User Rights Notice.md), which can also be found [here](https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html).
 
-### Contributors:
+### Contributors
 
 Mason Marchidon P.Eng M.ASc, Hydrologist for the [Oak Ridges Moraine Groundwater Program](http://oakridgeswater.ca/)
 
-### References and Acknowledgments:
+### References and Acknowledgments
 
 Markstrom, S.L., Niswonger, R.G., Regan, R.S., Prudic, D.E., and Barlow, P.M., 2008, [GSFLOW-Coupled Ground-water and Surface-water FLOW model based on the integration of the Precipitation-Runoff Modeling System (PRMS) and the Modular Ground-Water Flow Model (MODFLOW-2005): U.S. Geological Survey Techniques and Methods 6-D1, 240 p.](https://pubs.usgs.gov/tm/tm6d1/)
 
