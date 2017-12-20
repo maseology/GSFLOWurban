@@ -14,4 +14,4 @@ Because the software and related material are free (other than nominal materials
 
 The user assumes all risk for any damages whatsoever resulting from loss of use, data, or profits arising in connection with the access, use, quality, or performance of this software.
 
-This application includes open source software from the Apache Software Foundation and software published under the GNU Lesser Public License. A copy of each license is included in the doc directory.
+As a work of the United States Government, this USGS product is in the public domain within the United States. You can copy, modify, distribute, and perform the work, even for commercial purposes, all without asking permission. Additionally, USGS waives copyright and related rights in the work worldwide through CC0 1.0 Universal Public Domain Dedication (https://creativecommons.org/publicdomain/zero/1.0/).
