@@ -59,11 +59,13 @@ _none_ | srunoff_urban_mm.f90
 
 ### License
 
-GSFLOWurban hosted on GitHub is released under the GNU GPL license. This code extension follows strict adherence to the USGS [Software User Rights Notice](/USGS_Software_User_Rights_Notice.md), which can also be found [here](https://water.usgs.gov/software/CAP/code/1.0/UserRightsNotice.html).
+GSFLOWurban hosted on GitHub is released under the MIT license requiring the preservation of copyright and license notices. Licensed works, modifications, and larger works may be distributed under different terms and without source code. This code extension follows strict adherence to the USGS [Software User Rights Notice](/USGS_Software_User_Rights_Notice.md), which can also be found [here](https://water.usgs.gov/software/help/notice/).
 
 ### Contributors
 
-Mason Marchidon P.Eng M.ASc, Hydrologist for the [Oak Ridges Moraine Groundwater Program](http://oakridgeswater.ca/)
+Mason Marchidon P.Eng M.A.Sc, Hydrologist for the [Oak Ridges Moraine Groundwater Program](http://oakridgeswater.ca/)
+
+Copyright © 2017
 
 ### References and Acknowledgments
 
