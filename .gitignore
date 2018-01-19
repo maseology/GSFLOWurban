@@ -1,1 +1,16 @@
 /bak
+/doc/extra
+/GSFUc
+/GSFUf
+/ipch
+/src/gsflow/Makefile
+/src/mmf/Makefile
+/src/modflow/Makefile
+/src/prms/Makefile
+/x64
+GSFLOWurban.opensdf
+GSFLOWurban.sdf
+GSFLOWurban.sln
+GSFLOWurban.suo
+GSFLOWurban.v12.suo
+todo.txt

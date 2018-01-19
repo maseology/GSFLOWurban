@@ -42,19 +42,19 @@ Users are free to recompile their own version of GSFLOW urban by simply replacin
 
 Original model file | Modified model file
 ------------------- | -------------------
-de47_NWT.f | de47_NWT_mm.f
-gsflow_modflow.f | gsflow_modflow_mm.f
-gwf2bas7_NWT.f | gwf2bas7_NWT_mm.f
-gwf2uzf1_NWT.f | gwf2uzf1_NWT_mm.f
-gsflow_budget.f90 | gsflow_budget_mm.f90
-gsflow_prms.f90 | gsflow_prms_mm.f90
-gsflow_prms2mf.f90 | gsflow_prms2mf_mm.f90
-gwflow.f90 | gwflow_mm.f90
-map_results.f90 | map_results_mm.f90
-soilzone.f90 | soilzone_mm.f90
-srunoff.f90 | srunoff_mm.f90
-water_balance.f90 | water_balance_mm.f90
-_none_ | srunoff_urban_mm.f90
+gsflow/gsflow_budget.f90 | gsflow_budget_gu.f90
+gsflow/gsflow_modflow.f | gsflow_modflow_gu.f
+gsflow/gsflow_prms.f90 | gsflow_prms_gu.f90
+gsflow/gsflow_prms2mf.f90 | gsflow_prms2mf_gu.f90
+modflow/de47_NWT.f | de47_NWT_gu.f
+modflow/gwf2bas7_NWT.f | gwf2bas7_NWT_gu.f
+modflow/gwf2uzf1_NWT.f | gwf2uzf1_NWT_gu.f
+prms/gwflow.f90 | gwflow_gu.f90
+prms/map_results.f90 | map_results_gu.f90
+prms/soilzone.f90 | soilzone_gu.f90
+prms/srunoff.f90 | srunoff_gu.f90
+prms/water_balance.f90 | water_balance_gu.f90
+_none_ | srunoff_urban_gu.f90
 
 
 ### License
