@@ -1,4 +1,4 @@
-/.vs
+.vs
 /bak
 /test
 /doc/extra
@@ -6,4 +6,5 @@
 /GSFUf/x64
 /x64
 *.rar
+.vs
 todo.txt
