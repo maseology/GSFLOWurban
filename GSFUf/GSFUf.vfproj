@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectCreator="Intel Fortran" Keyword="Console Application" Version="11.0" ProjectIdGuid="{7CE283E4-384B-4856-9351-8A7513289204}">
+	<Platforms>
+		<Platform Name="Win32"/>
+		<Platform Name="x64"/></Platforms>
+	<Configurations>
+		<Configuration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
+		<Configuration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" RuntimeLibrary="rtMultiThreadedDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
+		<Configuration Name="Debug|x64">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" EnableRecursion="true" ReentrantCode="reentrancyThreaded" WarnUnusedVariables="true" WarnIgnoreLOC="true" SuppressUsageMessages="true" WarnInterfaces="true" ExternalNameInterpretation="extNameLowerCase" ExternalNameUnderscore="true" Traceback="true" RuntimeChecks="rtChecksAll" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebug"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
+		<Configuration Name="Release|x64" TargetName="gsflow_1_2_1_urban_0_1_0">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Optimization="optimizeFull" Parallelization="true" BufferedIO="true" EnableRecursion="true" WarnUnusedVariables="true" SuppressUsageMessages="true" WarnInterfaces="true" ExternalNameInterpretation="extNameLowerCase" ExternalNameUnderscore="true"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration></Configurations>
+	<Files>
+		<Filter Name="Header Files" Filter="fi;fd;h;inc"/>
+		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
+		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
+		<File RelativePath="..\src\prms\basin.f90"/>
+		<File RelativePath="..\src\prms\basin_sum.f90"/>
+		<File RelativePath="..\src\prms\cascade.f90"/>
+		<File RelativePath="..\src\prms\ccsolrad.f90"/>
+		<File RelativePath="..\src\prms\climate_hru.f90"/>
+		<File RelativePath="..\src\prms\climateflow.f90"/>
+		<File RelativePath="..\src\prms\ddsolrad.f90"/>
+		<File RelativePath="..\src\modflow\de47_NWT_gu.f"/>
+		<File RelativePath="..\src\prms\frost_date.f90"/>
+		<File RelativePath="..\src\modflow\gmg7.f"/>
+		<File RelativePath="..\src\gsflow\gsflow_budget_gu.f90"/>
+		<File RelativePath="..\src\gsflow\gsflow_mf2prms.f90"/>
+		<File RelativePath="..\src\gsflow\gsflow_modflow_gu.f"/>
+		<File RelativePath="..\src\gsflow\gsflow_prms2mf_gu.f90"/>
+		<File RelativePath="..\src\gsflow\gsflow_prms_gu.f90"/>
+		<File RelativePath="..\src\gsflow\gsflow_sum.f90"/>
+		<File RelativePath="..\src\modflow\gwf2bas7_NWT_gu.f"/>
+		<File RelativePath="..\src\modflow\gwf2bcf7.f"/>
+		<File RelativePath="..\src\modflow\gwf2chd7.f"/>
+		<File RelativePath="..\src\modflow\gwf2fhb7.f"/>
+		<File RelativePath="..\src\modflow\gwf2gag7.f"/>
+		<File RelativePath="..\src\modflow\gwf2ghb7_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2hfb7_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2huf7.f"/>
+		<File RelativePath="..\src\modflow\gwf2lak7_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2lpf7.f"/>
+		<File RelativePath="..\src\modflow\gwf2mnw17_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2mnw27_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2mnw2i7.f"/>
+		<File RelativePath="..\src\modflow\gwf2sfr7_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwf2upw1.f"/>
+		<File RelativePath="..\src\modflow\gwf2uzf1_NWT_gu.f"/>
+		<File RelativePath="..\src\modflow\gwf2wel7_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwflakmodule_NWT.f"/>
+		<File RelativePath="..\src\prms\gwflow.f90"/>
+		<File RelativePath="..\src\modflow\gwfsfrmodule_NWT.f"/>
+		<File RelativePath="..\src\modflow\gwfuzfmodule_NWT.f"/>
+		<File RelativePath="..\src\modflow\hufutl7.f"/>
+		<File RelativePath="..\src\prms\ide_dist.f"/>
+		<File RelativePath="..\src\prms\intcp.f90"/>
+		<File RelativePath="..\src\modflow\Irestart.f"/>
+		<File RelativePath="..\src\modflow\mach_mod.f90"/>
+		<File RelativePath="..\src\prms\map_results_gu.f90"/>
+		<File RelativePath="..\src\modflow\mhc7.f"/>
+		<File RelativePath="..\src\modflow\modules.f90"/>
+		<File RelativePath="..\src\prms\muskingum.f90"/>
+		<File RelativePath="..\src\prms\nhru_summary.f90"/>
+		<File RelativePath="..\src\modflow\NWT1_gmres.f90"/>
+		<File RelativePath="..\src\modflow\NWT1_ilupc_mod.f90"/>
+		<File RelativePath="..\src\modflow\NWT1_module.f"/>
+		<File RelativePath="..\src\modflow\NWT1_solver.f"/>
+		<File RelativePath="..\src\modflow\NWT1_xmd.f"/>
+		<File RelativePath="..\src\modflow\NWT1_xmdlib.f"/>
+		<File RelativePath="..\src\prms\obs.f90"/>
+		<File RelativePath="..\src\modflow\obs2bas7.f"/>
+		<File RelativePath="..\src\modflow\obs2chd7.f"/>
+		<File RelativePath="..\src\modflow\obs2ghb7.f"/>
+		<File RelativePath="..\src\modflow\parutl7.f"/>
+		<File RelativePath="..\src\modflow\pcg7_NWT.f"/>
+		<File RelativePath="..\src\prms\potet_hamon.f90"/>
+		<File RelativePath="..\src\prms\potet_hs.f90"/>
+		<File RelativePath="..\src\prms\potet_jh.f90"/>
+		<File RelativePath="..\src\prms\potet_pan.f90"/>
+		<File RelativePath="..\src\prms\potet_pm.f90"/>
+		<File RelativePath="..\src\prms\potet_pm_sta.f90"/>
+		<File RelativePath="..\src\prms\potet_pt.f90"/>
+		<File RelativePath="..\src\prms\precip_1sta_laps.f90"/>
+		<File RelativePath="..\src\prms\precip_dist2.f90"/>
+		<File RelativePath="..\src\prms\prms_time.f90"/>
+		<File RelativePath="..\src\prms\routing.f90"/>
+		<File RelativePath="..\src\modflow\sip7_NWT.f"/>
+		<File RelativePath="..\src\prms\snowcomp.f90"/>
+		<File RelativePath="..\src\prms\soilzone_gu.f90"/>
+		<File RelativePath="..\src\prms\soltab.f90"/>
+		<File RelativePath="..\src\prms\srunoff_gu.f90"/>
+		<File RelativePath="..\src\prms\srunoff_urban_gu.f90"/>
+		<File RelativePath="..\src\prms\strmflow.f90"/>
+		<File RelativePath="..\src\prms\strmflow_in_out.f90"/>
+		<File RelativePath="..\src\prms\subbasin.f90"/>
+		<File RelativePath="..\src\prms\temp_1sta_laps.f90"/>
+		<File RelativePath="..\src\prms\temp_dist2.f90"/>
+		<File RelativePath="..\src\prms\transp_frost.f90"/>
+		<File RelativePath="..\src\prms\transp_tindex.f90"/>
+		<File RelativePath="..\src\prms\utils_prms.f90"/>
+		<File RelativePath="..\src\modflow\utl7.f"/>
+		<File RelativePath="..\src\prms\water_balance_gu.f90"/>
+		<File RelativePath="..\src\prms\write_climate_hru.f90"/>
+		<File RelativePath="..\src\prms\xyz_dist.f"/></Filter></Files>
+	<Globals/></VisualStudioProject>
