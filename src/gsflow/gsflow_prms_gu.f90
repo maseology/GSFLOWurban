@@ -114,7 +114,7 @@
      &        '      Interception: intcp', /, &
      &        '     Snow Dynamics: snowcomp', /, &
      &        '    Surface Runoff: srunoff_smidx, srunoff_carea, srunoff_scscn,', /, &                                      ! mm
-     &        '                    srunoff_urban', /, &                                                                     ! mm
+     &        '                    srunoff_grnampt, srunoff_urban', /, &                                                    ! mm
      &        '         Soil Zone: soilzone', /, &
      &        '       Groundwater: gwflow, gw_topmodel', /, &                                                               ! mm
      &        'Streamflow Routing: strmflow, strmflow_in_out, muskingum', /, &
@@ -727,7 +727,9 @@
       ELSEIF ( Srunoff_module(:13)=='srunoff_scscn' ) THEN                                                                  ! mm
         Sroff_flag = 3                                                                                                      !
       ELSEIF ( Srunoff_module(:13)=='srunoff_urban' ) THEN                                                                  !
-        Sroff_flag = 4                                                                                                      ! mm
+        Sroff_flag = 4                                                                                                      !
+      ELSEIF ( Srunoff_module(:15)=='srunoff_grnampt' ) THEN                                                                !
+        Sroff_flag = 5                                                                                                      ! mm        
       ELSEIF ( Srunoff_module(:13)/='srunoff_smidx' ) THEN
         PRINT '(/,2A)', 'ERROR, invalid srunoff_module value: ', Srunoff_module
         Inputerror_flag = 1

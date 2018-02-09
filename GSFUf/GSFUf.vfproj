@@ -34,7 +34,7 @@
 				<Tool Name="VFPreBuildEventTool"/>
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
-		<Configuration Name="Release|x64" TargetName="gsflow_1_2_1_urban_0_1_0">
+		<Configuration Name="Release|x64" OutputDirectory="../bin" TargetName="gsflow_1_2_1_urban_0_2_0">
 				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" Optimization="optimizeFull" Parallelization="true" BufferedIO="true" EnableRecursion="true" WarnUnusedVariables="true" SuppressUsageMessages="true" WarnInterfaces="true" ExternalNameInterpretation="extNameLowerCase" ExternalNameUnderscore="true"/>
 				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" SubSystem="subSystemConsole"/>
 				<Tool Name="VFResourceCompilerTool"/>
@@ -48,22 +48,16 @@
 		<Filter Name="Header Files" Filter="fi;fd;h;inc"/>
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"/>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
-		<File RelativePath="..\src\prms\basin.f90"/>
-		<File RelativePath="..\src\prms\basin_sum.f90"/>
-		<File RelativePath="..\src\prms\cascade.f90"/>
-		<File RelativePath="..\src\prms\ccsolrad.f90"/>
-		<File RelativePath="..\src\prms\climate_hru.f90"/>
-		<File RelativePath="..\src\prms\climateflow.f90"/>
-		<File RelativePath="..\src\prms\ddsolrad.f90"/>
-		<File RelativePath="..\src\modflow\de47_NWT_gu.f"/>
-		<File RelativePath="..\src\prms\frost_date.f90"/>
-		<File RelativePath="..\src\modflow\gmg7.f"/>
+		<Filter Name="gsflow">
 		<File RelativePath="..\src\gsflow\gsflow_budget_gu.f90"/>
 		<File RelativePath="..\src\gsflow\gsflow_mf2prms.f90"/>
 		<File RelativePath="..\src\gsflow\gsflow_modflow_gu.f"/>
 		<File RelativePath="..\src\gsflow\gsflow_prms2mf_gu.f90"/>
 		<File RelativePath="..\src\gsflow\gsflow_prms_gu.f90"/>
-		<File RelativePath="..\src\gsflow\gsflow_sum.f90"/>
+		<File RelativePath="..\src\gsflow\gsflow_sum.f90"/></Filter>
+		<Filter Name="modflow">
+		<File RelativePath="..\src\modflow\de47_NWT_gu.f"/>
+		<File RelativePath="..\src\modflow\gmg7.f"/>
 		<File RelativePath="..\src\modflow\gwf2bas7_NWT_gu.f"/>
 		<File RelativePath="..\src\modflow\gwf2bcf7.f"/>
 		<File RelativePath="..\src\modflow\gwf2chd7.f"/>
@@ -82,31 +76,42 @@
 		<File RelativePath="..\src\modflow\gwf2uzf1_NWT_gu.f"/>
 		<File RelativePath="..\src\modflow\gwf2wel7_NWT.f"/>
 		<File RelativePath="..\src\modflow\gwflakmodule_NWT.f"/>
-		<File RelativePath="..\src\prms\gwflow.f90"/>
 		<File RelativePath="..\src\modflow\gwfsfrmodule_NWT.f"/>
 		<File RelativePath="..\src\modflow\gwfuzfmodule_NWT.f"/>
 		<File RelativePath="..\src\modflow\hufutl7.f"/>
-		<File RelativePath="..\src\prms\ide_dist.f"/>
-		<File RelativePath="..\src\prms\intcp.f90"/>
 		<File RelativePath="..\src\modflow\Irestart.f"/>
 		<File RelativePath="..\src\modflow\mach_mod.f90"/>
-		<File RelativePath="..\src\prms\map_results_gu.f90"/>
 		<File RelativePath="..\src\modflow\mhc7.f"/>
 		<File RelativePath="..\src\modflow\modules.f90"/>
-		<File RelativePath="..\src\prms\muskingum.f90"/>
-		<File RelativePath="..\src\prms\nhru_summary.f90"/>
 		<File RelativePath="..\src\modflow\NWT1_gmres.f90"/>
 		<File RelativePath="..\src\modflow\NWT1_ilupc_mod.f90"/>
 		<File RelativePath="..\src\modflow\NWT1_module.f"/>
 		<File RelativePath="..\src\modflow\NWT1_solver.f"/>
 		<File RelativePath="..\src\modflow\NWT1_xmd.f"/>
 		<File RelativePath="..\src\modflow\NWT1_xmdlib.f"/>
-		<File RelativePath="..\src\prms\obs.f90"/>
 		<File RelativePath="..\src\modflow\obs2bas7.f"/>
 		<File RelativePath="..\src\modflow\obs2chd7.f"/>
 		<File RelativePath="..\src\modflow\obs2ghb7.f"/>
 		<File RelativePath="..\src\modflow\parutl7.f"/>
 		<File RelativePath="..\src\modflow\pcg7_NWT.f"/>
+		<File RelativePath="..\src\modflow\sip7_NWT.f"/>
+		<File RelativePath="..\src\modflow\utl7.f"/></Filter>
+		<Filter Name="prms">
+		<File RelativePath="..\src\prms\basin.f90"/>
+		<File RelativePath="..\src\prms\basin_sum.f90"/>
+		<File RelativePath="..\src\prms\cascade.f90"/>
+		<File RelativePath="..\src\prms\ccsolrad.f90"/>
+		<File RelativePath="..\src\prms\climate_hru.f90"/>
+		<File RelativePath="..\src\prms\climateflow.f90"/>
+		<File RelativePath="..\src\prms\ddsolrad.f90"/>
+		<File RelativePath="..\src\prms\frost_date.f90"/>
+		<File RelativePath="..\src\prms\gwflow.f90"/>
+		<File RelativePath="..\src\prms\ide_dist.f"/>
+		<File RelativePath="..\src\prms\intcp.f90"/>
+		<File RelativePath="..\src\prms\map_results_gu.f90"/>
+		<File RelativePath="..\src\prms\muskingum.f90"/>
+		<File RelativePath="..\src\prms\nhru_summary.f90"/>
+		<File RelativePath="..\src\prms\obs.f90"/>
 		<File RelativePath="..\src\prms\potet_hamon.f90"/>
 		<File RelativePath="..\src\prms\potet_hs.f90"/>
 		<File RelativePath="..\src\prms\potet_jh.f90"/>
@@ -118,7 +123,6 @@
 		<File RelativePath="..\src\prms\precip_dist2.f90"/>
 		<File RelativePath="..\src\prms\prms_time.f90"/>
 		<File RelativePath="..\src\prms\routing.f90"/>
-		<File RelativePath="..\src\modflow\sip7_NWT.f"/>
 		<File RelativePath="..\src\prms\snowcomp.f90"/>
 		<File RelativePath="..\src\prms\soilzone_gu.f90"/>
 		<File RelativePath="..\src\prms\soltab.f90"/>
@@ -132,8 +136,7 @@
 		<File RelativePath="..\src\prms\transp_frost.f90"/>
 		<File RelativePath="..\src\prms\transp_tindex.f90"/>
 		<File RelativePath="..\src\prms\utils_prms.f90"/>
-		<File RelativePath="..\src\modflow\utl7.f"/>
 		<File RelativePath="..\src\prms\water_balance_gu.f90"/>
 		<File RelativePath="..\src\prms\write_climate_hru.f90"/>
-		<File RelativePath="..\src\prms\xyz_dist.f"/></Filter></Files>
+		<File RelativePath="..\src\prms\xyz_dist.f"/></Filter></Filter></Files>
 	<Globals/></VisualStudioProject>

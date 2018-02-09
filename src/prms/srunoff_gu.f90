@@ -20,6 +20,8 @@
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Dprst_stor_ante(:)
       REAL, SAVE :: Srp, Sri, Perv_frac, Imperv_frac, Hruarea_imperv, Hruarea
       DOUBLE PRECISION, SAVE :: Hruarea_dble
+      REAL, SAVE, ALLOCATABLE :: Ga_f(:)                                                                                    ! mm
+      INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm      
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Basin_sroff_down, Basin_sroff_upslope
       DOUBLE PRECISION, SAVE :: Basin_sroffi, Basin_sroffp
@@ -37,6 +39,7 @@
       REAL, SAVE, ALLOCATABLE :: Smidx_coef(:), Smidx_exp(:)
       REAL, SAVE, ALLOCATABLE :: Carea_min(:), Carea_max(:)
       REAL, SAVE, ALLOCATABLE :: Scs_cn(:), Sri_to_perv(:)                                                                  ! mm
+      REAL, SAVE, ALLOCATABLE :: Ga_ksat(:), Ga_sm(:)                                                                       ! mm 
 !   Declared Parameters for Depression Storage
       REAL, SAVE, ALLOCATABLE :: Op_flow_thres(:), Sro_to_dprst(:)
       REAL, SAVE, ALLOCATABLE :: Va_clos_exp(:), Va_open_exp(:)
@@ -105,6 +108,8 @@
         MODNAME = 'srunoff_scscn'
       ELSEIF ( Sroff_flag==4 ) THEN
         MODNAME = 'srunoff_urban'                                                                                           ! mm
+      ELSEIF ( Sroff_flag==5 ) THEN
+        MODNAME = 'srunoff_grnampt'                                                                                         ! mm
       ENDIF
       Version_srunoff = MODNAME//'.f90 '//Version_srunoff(13:80)
       CALL print_module(Version_srunoff, 'Surface Runoff              ', 90)
@@ -328,6 +333,22 @@
      &       'Curve Number', &
      &       'Soil Conservation Service Curve Number (CN) for each HRU', &
      &       'index from 0-100')/=0 ) CALL read_error(1, 'scs_cn')
+      ENDIF
+      
+      IF ( Sroff_flag==5 .OR. Model==99 ) THEN
+        ALLOCATE ( Ga_ksat(Nhru), Ga_sm(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
+        IF ( declparam(MODNAME, 'ga_ksat', 'nhru', 'real', &
+     &       '0.1', '0.0', '100.0', &
+     &       'Soil saturated conductivity', &
+     &       'Saturated hydraulic conductivity of soil surface for each HRU', &
+     &       'inches/day')/=0 ) CALL read_error(1, 'ga_ksat')  
+        
+        IF ( declparam(MODNAME, 'ga_sm', 'nhru', 'real', &
+     &       '0.8', '0.0', '10.0', &
+     &       'Green-Ampt SM factor', &
+     &       'Computed as the soil suction head times the moisture deficit'// &
+     &       ' of soil zone ahead of the wetting front at field capacity for each HRU', &
+     &       'inches')/=0 ) CALL read_error(1, 'ga_sm')  
       ENDIF                                                                                                                 ! mm end
 
       ALLOCATE ( Carea_max(Nhru) )
@@ -522,6 +543,12 @@
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         ! mm
 ! Urban parameters
         ! urban parameters to be collected via srunoff_urban module
+      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         ! mm
+! Green-Ampt parameters
+        IF ( getparam(MODNAME, 'ga_ksat', Nhru, 'real', Ga_ksat)/=0 ) CALL read_error(2, 'ga_ksat')        
+        IF ( getparam(MODNAME, 'ga_sm', Nhru, 'real', Ga_sm)/=0 ) CALL read_error(2, 'ga_sm')     
+        Ga_f = 0.0
+        Ga_ponded = 0
       ENDIF
 
       num_hrus = 0
@@ -980,7 +1007,7 @@
       REAL, INTENT(IN) :: Pptp, Ptc
       REAL, INTENT(INOUT) :: Infil
 ! Functions                                                                                                                 ! mm
-      REAL compute_cn_s                                                                                                     !
+      REAL compute_cn_s, compute_grnampt                                                                                    !
 ! Local Variables
       REAL :: smidx, srpp, ca_fraction, cn_s, mfrac                                                                         ! mm
       INTEGER :: cn_amc                                                                                                     ! mm
@@ -1003,9 +1030,11 @@
         cn_s = compute_cn_s(Scs_cn(Ihru), cn_amc)                                                                           !
         ca_fraction = Pptp / ( Pptp + cn_s )                                                                                !
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         !
-        ! pervious runoff will be dictated by Carea_max (see following line)                                                !
+        ! pervious runoff will be dictated by Carea_max (see line following IF block)                                       !
         ca_fraction = 1.0                                                                                                   ! mm
-      ENDIF
+      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         !
+        ca_fraction = compute_grnampt(Pptp) / Pptp                                                                          ! mm
+      ENDIF   
       IF ( ca_fraction>Carea_max(Ihru) ) ca_fraction = Carea_max(Ihru)
       srpp = ca_fraction*Pptp
       Contrib_fraction(Ihru) = ca_fraction
@@ -1020,8 +1049,8 @@
       END SUBROUTINE perv_comp
 
 !***********************************************************************                                                    ! mm begin
-!      Function used to set the S-value of the SCS CN equation,
-!      corrected on antecedent moisture state.
+!     Function used to set the S-value of the SCS CN equation,
+!     corrected on antecedent moisture state.
 !***********************************************************************
       REAL FUNCTION compute_cn_s(CN, AMC)
       USE PRMS_BASIN, ONLY: CLOSEZERO
@@ -1032,8 +1061,8 @@
 ! Local Variables
       REAL :: cn_amc
 !***********************************************************************
-	! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
-    !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340.
+	  ! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
+      !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340.
       IF ( AMC==1 ) THEN
         cn_amc = CN / (2.281 - 0.01281 * CN) ! AMCI: dry
 	  ELSEIF ( AMC==3 ) THEN
@@ -1051,6 +1080,132 @@
       ENDIF
 	  
       END FUNCTION compute_cn_s                                                                                             ! mm end
+    
+!***********************************************************************                                                    ! mm begin
+!     Function used to determine cummulative infiltraton, based on the
+!     Green-Ampt approximation (Green, W.H., G.A. Ampt, 1911. Studies 
+!               of Soil Physics, 1: The Flow of Air and Water Through 
+!               Soils. Journal of Agricultural Science 4(1). pp.1-24.).
+!     based on: Chu, S.T., 1978. Infiltration During an Unsteady Rain. 
+!               Water Research Research 14(3). pp.461-466.
+!     Updates cumulative infilltration (F), returns excess rainfall (R)    
+!***********************************************************************
+      REAL FUNCTION compute_grnampt(Pptp)
+      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sm, Ga_f, Ga_ponded
+      USE PRMS_BASIN, ONLY: CLOSEZERO
+      IMPLICIT NONE
+      INTRINSIC LOG
+! Arguments
+      REAL, INTENT(IN) :: Pptp
+! Functions
+      REAL fpsm
+! Local Variables
+      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1
+      INTEGER :: i
+      REAL, ALLOCATABLE :: ga_pprop(:), ga_intvl(:)                                                                         ! mm ** TO BE MOVED ELSEWHERE
+      INTEGER :: ga_nint                                                                                                    ! mm ** TO BE MOVED ELSEWHERE      
+!***********************************************************************
+      ! **** temporarily setting unit interval as default, need to find a way to read these in ****
+      ga_nint = 1  ! number of daily sub steps (invervals)
+      ALLOCATE ( ga_intvl(ga_nint) )  ! ratio of substep rainfall to total daily rainfall (array must sum to 1.0)
+      ALLOCATE ( ga_pprop(ga_nint) )  ! proportion of daily rainfall occuring during interval
+      ga_intvl = 1.0
+      ga_pprop = 1.0
+      ! **** these should be gone once interval input is figured out
+      
+      IF ( Pptp <= 0.0 ) THEN
+        Ga_f(Ihru) = 0.0
+        Ga_ponded(Ihru) = 0
+        compute_grnampt = 0.0
+        GOTO 999
+      ENDIF
+            
+      pt = Ga_f(Ihru)
+      pl = 0.0
+      rt = 0.0
+      rl = 0.0
+      ft = 0.0
+      fl = 0.0
+      tp = 0.0
+      ts = 0.0
+      tcum = 0.0
+      DO i = 1, ga_nint
+        pn = Pptp*ga_pprop(i)/ga_intvl(i)  ! precip intensity occurring during the current sub-interval (inches/day)
+        pt = pt + Pptp*ga_pprop(i)
+          
+        IF ( Ga_ksat(Ihru) >= pn ) THEN
+          ! rainfall intensity less than infiltrability
+          Ga_f(Ihru) = 0.0
+          GOTO 100
+        ENDIF
+          
+        IF ( Ga_ponded(Ihru).NE.0 ) THEN
+          ! check whether ponding will occur in sub-timestep (Cu)
+          s1 = pt - rl - Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru))
+          IF (s1 > 0.0) Ga_ponded(Ihru) = 1
+        ENDIF
+        
+        IF (Ga_ponded(Ihru) == 1) THEN ! hru is ponded
+          IF ( tp == 0.0 ) THEN
+            s1 = (Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
+            IF ( s1 < 0.0 ) THEN ! tp: ponding time
+              tp = tcum
+            ELSE
+              tp = s1 + tcum
+            ENDIF         
+            s1 = pl + (tp - tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
+            ts = Ga_sm(Ihru) / Ga_ksat(Ihru) * ((s1 - rl) / Ga_sm(Ihru) - LOG(1.0 + (s1 - rl) / Ga_sm(Ihru))) ! ts: time scale shift
+          ENDIF
+          tt = ga_intvl(i) + tcum - tp + ts
+          s1 = Ga_ksat(Ihru) * tt / Ga_sm(Ihru) ! KT/SM
+          s1 = fpsm(s1) ! F/SM
+          ft = s1 * Ga_sm(Ihru) ! F(t)
+          s1 = pt - ft
+          IF ( s1 <= rl ) THEN
+            rt = rl
+          ELSE
+            rt = s1
+          ENDIF
+          
+          ! check if ponding will cease this timestep (Cp)
+          s1 = pt - ft - rl
+          IF ( s1 < 0.0 ) GOTO 101
+        ELSE
+          ! hru is not ponded
+          GOTO 101
+        ENDIF
+        
+        ! save sub-interval state
+        rl = rt
+        GOTO 100
+101     Ga_ponded(Ihru) = 0
+        rt = rl
+        ft = pt - rl
+        tp = 0.0
+100     pl = pt
+        tcum = tcum + ga_intvl(i)
+        Ga_f(Ihru) = Ga_f(Ihru) + ft - fl
+        fl = ft
+      ENDDO
+
+      compute_grnampt = rt ! rainfall excess      
+  999 RETURN
+      END FUNCTION compute_grnampt
+!***********************************************************************
+!     Function used to solve for F/SM in Chu (1978)
+!***********************************************************************
+      REAL FUNCTION fpsm(ktttsm)
+      INTRINSIC LOG10, MIN, MAX
+! Arguments
+      REAL, INTENT(IN) :: ktttsm
+! Local Variables
+      REAL :: s1      
+!***********************************************************************
+      s1 = MIN(MAX(ktttsm, 0.00005), 7.6)
+      s1 = LOG10(s1)
+      s1 = 0.0073 * s1 ** 3 + 0.063 * s1 ** 2 + 0.682 * s1 + 0.3369 ! see FpSM.xlsx for function derivation: R²=1
+      fpsm = 10.0 ** s1
+      END FUNCTION                                                                                                          ! mm end
 !***********************************************************************
 !     Compute cascading runoff (runoff in inche*acre/dt)
 !***********************************************************************
