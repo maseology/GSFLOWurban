@@ -4,11 +4,12 @@
       INTEGER FUNCTION strmflow_in_out()
       USE PRMS_MODULE, ONLY: Process, Nsegment
       USE PRMS_SET_TIME, ONLY: Cfs_conv
-      USE PRMS_BASIN, ONLY: Active_area, CFS2CMS_CONV, Obsin_segment, Segment_order, Tosegment
+      USE PRMS_BASIN, ONLY: Active_area, CFS2CMS_CONV
       USE PRMS_GWFLOW, ONLY: Basin_gwflow
       USE PRMS_FLOWVARS, ONLY: Basin_ssflow, Basin_cfs, Basin_cms, Basin_stflow_in, &
      &    Basin_sroff_cfs, Basin_ssflow_cfs, Basin_gwflow_cfs, Basin_stflow_out, &
      &    Seg_inflow, Seg_outflow, Seg_upstream_inflow, Seg_lateral_inflow, Flow_out
+      USE PRMS_ROUTING, ONLY: Obsin_segment, Segment_order, Tosegment
       USE PRMS_SRUNOFF, ONLY: Basin_sroff
       USE PRMS_OBS, ONLY: Streamflow_cfs
       IMPLICIT NONE
@@ -47,7 +48,7 @@
         Basin_ssflow_cfs = Basin_ssflow*area_fac
         Basin_gwflow_cfs = Basin_gwflow*area_fac
       ELSEIF ( Process(:4)=='decl' ) THEN
-        Version_strmflow = 'strmflow_in_out.f90 2014-12-02 19:06:41Z'
+        Version_strmflow = 'strmflow_in_out.f90 2017-07-11 11:06:00Z'
         CALL print_module(Version_strmflow, 'Streamflow Routing          ', 90)
       ENDIF
 

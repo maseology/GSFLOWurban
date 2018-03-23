@@ -38,8 +38,8 @@
       REAL, SAVE, ALLOCATABLE :: Pk_def(:), Pk_ice(:), Freeh2o(:)
       REAL, SAVE, ALLOCATABLE :: Snowcov_area(:), Tcal(:)
       REAL, SAVE, ALLOCATABLE :: Snsv(:), Pk_precip(:)
-      DOUBLE PRECISION, SAVE, ALLOCATABLE :: Frac_swe(:), Ai(:)
-      DOUBLE PRECISION, SAVE, ALLOCATABLE :: Pk_depth(:), Pkwater_ante(:)
+      REAL, SAVE, ALLOCATABLE :: Frac_swe(:)
+      DOUBLE PRECISION, SAVE, ALLOCATABLE :: Pk_depth(:), Pkwater_ante(:), Ai(:)
       !****************************************************************
       !   Declared Parameters
 
@@ -98,7 +98,7 @@
 !***********************************************************************
       snodecl = 0
 
-      Version_snowcomp = 'snowcomp.f90 2016-06-16 13:25:00Z'
+      Version_snowcomp = 'snowcomp.f90 2018-02-06 10:33:00Z'
       CALL print_module(Version_snowcomp, 'Snow Dynamics               ', 90)
       MODNAME = 'snowcomp'
 
@@ -304,7 +304,7 @@
      &     'inches', Ai)/=0 ) CALL read_error(3, 'ai')
 
       ALLOCATE ( Frac_swe(Nhru) )
-      IF ( declvar(MODNAME, 'frac_swe', 'nhru', Nhru, 'double', &
+      IF ( declvar(MODNAME, 'frac_swe', 'nhru', Nhru, 'real', &
      &     'Fraction of maximum snow-water equivalent (snarea_thresh) on each HRU', &
      &     'decimal fraction', Frac_swe)/=0 ) CALL read_error(3, 'frac_swe')
 
@@ -506,7 +506,7 @@
       Pk_ice = 0.0
       Freeh2o = 0.0
       Ai = 0.0D0
-      Frac_swe = 0.0D0
+      Frac_swe = 0.0
       Snowcov_area = 0.0
       Basin_pweqv = 0.0D0
       Basin_snowdepth = 0.0D0
@@ -519,10 +519,11 @@
           Pk_depth(i) = Pkwater_equiv(i)*Deninv
           Pk_den(i) = Pkwater_equiv(i)/Pk_depth(i)
           Pk_ice(i) = SNGL( Pkwater_equiv(i) )
-          Freeh2o = Pk_ice(i)*Freeh2o_cap(i)
+          Freeh2o(i) = Pk_ice(i)*Freeh2o_cap(i)
           Ai(i) = Pkwater_equiv(i) ! [inches]
           IF ( Ai(i)>Snarea_thresh(i) ) Ai = DBLE( Snarea_thresh(i) ) ! [inches]
-          CALL sca_deplcrv(i, Snowcov_area(i))
+          Frac_swe(i) = SNGL( Pkwater_equiv(i)/Ai(i) ) ! [fraction]
+          CALL sca_deplcrv(Snowcov_area(i), Snarea_curve(11,Hru_deplcrv(i)), Frac_swe(i))
           Basin_snowcov = Basin_snowcov + DBLE(Snowcov_area(i))*Hru_area_dble(i)
           Basin_snowdepth = Basin_snowdepth + Pk_depth(i)*Hru_area_dble(i)
         ENDIF
@@ -635,7 +636,7 @@
         Pk_precip(i) = 0.0 ! [inches]
         Snowmelt(i) = 0.0 ! [inches]
         Snow_evap(i) = 0.0 ! [inches]
-        Frac_swe(i) = 0.0D0
+        Frac_swe(i) = 0.0
         Ai(i) = 0.0D0
 
         ! By default, there has not been a mixed event without a
@@ -695,7 +696,7 @@
             CALL snowcov(Iasw(i), Newsnow(i), Snowcov_area(i), &
      &                   Snarea_curve(1, k), Pkwater_equiv(i), Pst(i), &
      &                   Snarea_thresh(i), Net_snow(i), Scrv(i), &
-     &                   Pksv(i), Snowcov_areasv(i), Ai(i), i)
+     &                   Pksv(i), Snowcov_areasv(i), Ai(i), Frac_swe(i))
           ENDIF
 
           ! HRU STEP 3 - COMPUTE THE NEW ALBEDO
@@ -933,7 +934,7 @@
           Freeh2o(i) = 0.0
           Snowcov_areasv(i) = 0.0 ! rsr, not in original code
           Ai(i) = 0.0D0
-          Frac_swe(i) = 0.0D0
+          Frac_swe(i) = 0.0
         ENDIF
 
         ! Sum volumes for basin totals
@@ -2056,23 +2057,26 @@
 !***********************************************************************
       SUBROUTINE snowcov(Iasw, Newsnow, Snowcov_area, Snarea_curve, &
      &                   Pkwater_equiv, Pst, Snarea_thresh, Net_snow, &
-     &                   Scrv, Pksv, Snowcov_areasv, Ai,Ihru)
+     &                   Scrv, Pksv, Snowcov_areasv, Ai, Frac_swe)
       IMPLICIT NONE
 ! Arguments
-      INTEGER, INTENT(IN) :: Newsnow, Ihru
+      INTEGER, INTENT(IN) :: Newsnow
       INTEGER, INTENT(INOUT) :: Iasw
       REAL, INTENT(IN) :: Snarea_thresh, Net_snow, Snarea_curve(11)
       DOUBLE PRECISION, INTENT(IN) :: Pkwater_equiv
-      REAL, INTENT(OUT) :: Snowcov_area
+      REAL, INTENT(INOUT) :: Snowcov_area
       DOUBLE PRECISION, INTENT(OUT) :: Ai
       REAL, INTENT(INOUT) :: Snowcov_areasv
       DOUBLE PRECISION, INTENT(INOUT) :: Pst, Scrv, Pksv
+      REAL, INTENT(OUT) :: Frac_swe
 ! Functions
       INTRINSIC DBLE, SNGL
       EXTERNAL :: sca_deplcrv
 ! Local Variables
+      REAL :: snowcov_area_ante
       DOUBLE PRECISION :: fracy, difx, dify
 !***********************************************************************
+      snowcov_area_ante = Snowcov_area
       ! Reset snowcover area to the maximum
       Snowcov_area = Snarea_curve(11) ! [fraction of area]
 
@@ -2084,6 +2088,10 @@
       ! the threshold for complete snow cover
       Ai = Pst ! [inches]
       IF ( Ai>Snarea_thresh ) Ai = DBLE( Snarea_thresh ) ! [inches]
+
+      ! calculate the ratio of the current packwater equivalent to
+      ! the maximum packwater equivalent for the given snowpack
+      Frac_swe = SNGL( Pkwater_equiv/Ai ) ! [fraction]
 
       ! There are 3 potential conditions for the snow area curve:
       ! A. snow is accumulating and the pack is currently at its
@@ -2150,7 +2158,7 @@
             Iasw = 1 ! [flag]
             ! Save the current snow covered area
             ! (before the new net snow)
-            Snowcov_areasv = Snowcov_area ! [inches]
+            Snowcov_areasv = snowcov_area_ante ! [inches]
             ! Save the current pack water equivalent
             ! (before the new net snow)
             Pksv = Pkwater_equiv - DBLE( Net_snow ) ! [inches]
@@ -2234,7 +2242,7 @@
         ! covered area curve (not the same as interpolating between
         ! 100% and the previous spot on the snow area depletion curve).
 
-        CALL sca_deplcrv(Ihru, Snowcov_area)
+        CALL sca_deplcrv(Snowcov_area, Snarea_curve, Frac_swe)
 
       ENDIF
 
@@ -2243,47 +2251,37 @@
 !***********************************************************************
 !     Interpolate along snow covered area depletion curve
 !***********************************************************************
-      SUBROUTINE sca_deplcrv(Ihru, Snowcov_area)
-      USE PRMS_SNOW, ONLY: Snarea_curve, Hru_deplcrv, Snarea_curve, Frac_swe, Ai
-      USE PRMS_FLOWVARS, ONLY: Pkwater_equiv
+      SUBROUTINE sca_deplcrv(Snowcov_area, Snarea_curve, Frac_swe)
       IMPLICIT NONE
 ! Functions
-      INTRINSIC :: DBLE, SNGL, DINT
+      INTRINSIC :: INT, FLOAT
 ! Arguments
-      INTEGER, INTENT(IN) :: Ihru
       REAL, INTENT(OUT) :: Snowcov_area
+      REAL, INTENT(IN) :: Snarea_curve(11), Frac_swe
 ! Local Variables
-      INTEGER :: idx, jdx, k
-      DOUBLE PRECISION :: af, dify, difx
+      INTEGER :: idx, jdx
+      REAL :: af, dify, difx
 !***********************************************************************
-      ! use the snow depletion curve for the current HRU
-      k = Hru_deplcrv(Ihru)
-
-      ! calculate the ratio of the current packwater equivalent to
-      ! the maximum packwater equivalent for the given snowpack
-      Frac_swe(Ihru) = 0.0D0
-      IF ( Ai(Ihru)>0.0D0 ) Frac_swe(Ihru) = Pkwater_equiv(Ihru)/Ai(Ihru) ! [fraction]
-      IF ( Frac_swe(Ihru)>1.0 ) THEN
-        Snowcov_area = Snarea_curve(11, k)
-        Frac_swe(Ihru) = 1.0
+      IF ( Frac_swe>1.0 ) THEN
+        Snowcov_area = Snarea_curve(11)
       ELSE
 
         ! get the indices (as integers) of the depletion curve that
         ! bracket the given Frac_swe (next highest and next lowest)
-        idx = DINT(10.0D0*(Frac_swe(Ihru)+0.2D0)) ! [index]
+        idx = INT( 10.0*(Frac_swe+0.2) ) ! [index]
         jdx = idx - 1 ! [index]
         IF ( idx>11 ) idx = 11
         ! calculate the fraction of the distance (from the next lowest)
         ! the given Frac_swe is between the next highest and lowest
         ! curve values
-        af = DBLE(jdx-1)
-        dify = (Frac_swe(Ihru)*10.0D0) - af ! [fraction]
+        af = FLOAT( jdx-1 )
+        dify = (Frac_swe*10.0) - af ! [fraction]
         ! calculate the difference in snow covered area represented
         ! by next highest and lowest curve values
-        difx = Snarea_curve(idx, k) - Snarea_curve(jdx, k)
+        difx = Snarea_curve(idx) - Snarea_curve(jdx)
         ! linearly interpolate a snow covered area between those
         ! represented by the next highest and lowest curve values
-        Snowcov_area = Snarea_curve(jdx, k) + SNGL( dify*difx )
+        Snowcov_area = Snarea_curve(jdx) + dify*difx
       ENDIF
       END SUBROUTINE sca_deplcrv
 

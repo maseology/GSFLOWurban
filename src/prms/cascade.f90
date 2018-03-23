@@ -7,8 +7,7 @@
 !   Local Variables
       INTEGER, SAVE :: MSGUNT
       CHARACTER(LEN=7), SAVE :: MODNAME
-      INTEGER, SAVE :: Iorder, Igworder, Ndown, Nsegmentp1
-      INTEGER, SAVE :: Outflow_flg, Outflow_gwrflg
+      INTEGER, SAVE :: Iorder, Igworder, Ndown
 !   Computed Variables
       INTEGER, SAVE, ALLOCATABLE :: Hru_down(:, :), Gwr_down(:, :)
       INTEGER, SAVE, ALLOCATABLE :: Ncascade_hru(:), Ncascade_gwr(:)
@@ -17,21 +16,21 @@
       REAL, SAVE, ALLOCATABLE :: Hru_down_frac(:, :)
 !     REAL, SAVE, ALLOCATABLE :: Gwr_down_fracwt(:, :)
 ! hru_down_frac: Fraction of HRU area used to compute flow routed
-!                to a down slope HRU or stream segment.
-! hru_down_fracwt: HRU area fraction, area weighted by down slope HRU
-!                  area, used to compute flow routed to a down slope
+!                to a downslope HRU or stream segment.
+! hru_down_fracwt: HRU area fraction, area weighted by downslope HRU
+!                  area, used to compute flow routed to a downslope
 !                  HRU or stream segment.
-! gwr_down_fracwt: GWR area fraction, area weighted by down slope GWR
-!                  area, used to compute flow routed to a down slope
+! gwr_down_fracwt: GWR area fraction, area weighted by downslope GWR
+!                  area, used to compute flow routed to a downslope
 !                  GWR or stream segment.
 ! gwr_down_frac: Fraction of GWR area used to compute flow routed
-!                to a down slope cascade area or stream segment from
+!                to a downslope cascade area or stream segment from
 !                each cascade area of an GWR.
 ! cascade_area: Cascade area within an HRU.
 ! cascade_gwr_area: Cascade area within an GWR.
-! hru_down: Indices of the down slope HRUs or stream segments to
+! hru_down: Indices of the downslope HRUs or stream segments to
 !           which the cascade area routes flow.
-! gwr_down: Indices of the down slope GWRs to which the cascade
+! gwr_down: Indices of the downslope GWRs to which the cascade
 !           area routes flow.
 !   Declared Parameters
       INTEGER, SAVE :: Cascade_flg, Circle_switch
@@ -71,7 +70,7 @@
 !***********************************************************************
       INTEGER FUNCTION cascdecl()
       USE PRMS_CASCADE
-      USE PRMS_MODULE, ONLY: Model, Nhru, Ngw, Cascade_flag, Cascadegw_flag, Ncascade, Ncascdgw, Print_debug, Nsegment
+      USE PRMS_MODULE, ONLY: Model, Nhru, Ngw, Cascade_flag, Cascadegw_flag, Ncascade, Ncascdgw, Print_debug
       IMPLICIT NONE
 ! Functions
       INTRINSIC INDEX
@@ -82,11 +81,10 @@
 !***********************************************************************
       cascdecl = 0
 
-      Version_cascade = 'cascade.f90 2016-07-19 13:51:00Z'
+      Version_cascade = 'cascade.f90 2017-11-08 12:14:00Z'
       CALL print_module(Version_cascade, 'Cascading Flow              ', 90)
       MODNAME = 'cascade'
 
-      Nsegmentp1 = Nsegment + 1
       IF ( Cascade_flag==1 .OR. Model==99 ) ALLOCATE ( Ncascade_hru(Nhru) )
 
       IF ( Cascadegw_flag>0 .OR. Model==99 ) ALLOCATE ( Ncascade_gwr(Ngw) )
@@ -112,8 +110,8 @@
         ALLOCATE ( Hru_down_id(Ncascade) )
         IF ( declparam(MODNAME, 'hru_down_id', 'ncascade', 'integer', &
      &       '0', 'bounded', 'nhru', &
-     &       'HRU index of down slope HRU', &
-     &       'Index number of the down slope HRU to which the upslope HRU contributes flow', &
+     &       'HRU index of downslope HRU', &
+     &       'Index number of the downslope HRU to which the upslope HRU contributes flow', &
      &       'none')/=0 ) CALL read_error(1, 'hru_down_id')
 
         ALLOCATE ( Hru_pct_up(Ncascade) )
@@ -121,7 +119,7 @@
      &       '1.0', '0.0', '1.0', &
      &       'Fraction of HRU area associated with cascade area', &
      &       'Fraction of HRU area used to compute flow contributed'// &
-     &       ' to a down slope HRU or stream segment for cascade area', &
+     &       ' to a downslope HRU or stream segment for cascade area', &
      &       'decimal fraction')/=0 ) CALL read_error(1, 'hru_pct_up')
       ENDIF
 
@@ -162,8 +160,8 @@
         ALLOCATE ( Gw_down_id(Ncascdgw) )
         IF ( declparam(MODNAME, 'gw_down_id', 'ncascdgw', 'integer', &
      &       '0', 'bounded', 'ngw', &
-     &       'GWR index of down slope GWR', &
-     &       'Index number of the down slope GWR to which the upslope GWR contributes flow', &
+     &       'GWR index of downslope GWR', &
+     &       'Index number of the downslope GWR to which the upslope GWR contributes flow', &
      &       'none')/=0 ) CALL read_error(1, 'gw_down_id')
 
         ALLOCATE ( Gw_pct_up(Ncascdgw) )
@@ -171,7 +169,7 @@
      &       '1.0', '0.0', '1.0', &
      &       'Fraction of GWR area associated with cascade area', &
      &       'Fraction of GWR area used to compute flow contributed'// &
-     &       ' to a down slope GWR or stream segment for cascade area', &
+     &       ' to a downslope GWR or stream segment for cascade area', &
      &       'decimal fraction')/=0 ) CALL read_error(1, 'gw_pct_up')
 
       ENDIF
@@ -351,9 +349,6 @@
       Ncascade_hru = 0
       hru_frac = 0.0
 
-      Outflow_flg = 0
-      Outflow_gwrflg = 0
-
       DO i = 1, Ncascade
         kup = Hru_up_id(i)
         IF ( kup<1 ) THEN
@@ -389,14 +384,6 @@
           IF ( Print_debug==13 ) WRITE ( MSGUNT, 9004 ) 'Cascade ignored as lake HRU cannot cascade to an HRU', &
      &                                                  i, kup, jdn, frac, istrm
         ELSE
-          ! if cascade is negative, then farfield, so ignore istrm
-!         IF ( jdn<0 .AND. istrm>0 ) THEN
-          IF ( jdn<0 ) THEN
-            IF ( Print_debug==13 ) WRITE ( MSGUNT, 9004 ) &
-     &           'down HRU<0 thus cascade is to strm_farfield', i, kup, jdn, frac, istrm
-            istrm = 0
-          ENDIF
-
           IF ( jdn>0 .AND. istrm<1 ) THEN
             IF ( Hru_type(jdn)==0 ) THEN
               IF ( Print_debug==13 ) WRITE ( MSGUNT, 9004 ) &
@@ -417,14 +404,7 @@
               IF ( istrm>0 ) THEN
                 Hru_down(1, kup) = -istrm
               ELSE
-                ! if jdn is negative then farfield
-                IF ( jdn<0 ) THEN
-                  IF ( Print_debug==13 ) WRITE ( MSGUNT, 9006 ) i, frac, Nsegmentp1
-                  Hru_down(1, kup) = -Nsegmentp1
-                  Outflow_flg = 1
-                ELSE
-                  Hru_down(1, kup) = jdn
-                ENDIF
+                Hru_down(1, kup) = jdn
               ENDIF
             ENDIF
           ELSE
@@ -444,14 +424,7 @@
             IF ( istrm>0 ) THEN
               Hru_down(kk, kup) = -istrm
             ELSE
-              ! if jdn is negative then farfield
-              IF ( jdn<0 ) THEN
-                IF ( Print_debug==13 ) WRITE ( MSGUNT, 9006 ) i, frac, Nsegmentp1
-                Hru_down(kk, kup) = -Nsegmentp1
-                Outflow_flg = 1
-              ELSE
-                Hru_down(kk, kup) = jdn
-              ENDIF
+              Hru_down(kk, kup) = jdn
             ENDIF
           ENDIF
         ENDIF
@@ -523,8 +496,6 @@
  9005 FORMAT ('*** WARNING, ignoring small cascade, carea<cascade_tol', &
      &        /, '    Cascade:', I7, '; HRU up:', I7, '; HRU down:', I7, &
      &        '; fraction up:', F8.2, '; cascade area:', F8.2)
- 9006 FORMAT ('*** INFO, HRU:', I6, ', fraction:', F8.2, &
-     &        ' is producing far-field flow to segment:', I6)
 
       END SUBROUTINE init_cascade
 
@@ -799,14 +770,6 @@
      &                  i, kup, jdn, frac, istrm
           ENDIF
         ELSE
-          ! if cascade is negative, then farfield, so ignore istrm
-!         IF ( jdn<0 .AND. istrm>0 ) THEN
-          IF ( jdn<0 ) THEN
-            IF ( Print_debug==13 ) WRITE ( MSGUNT, 9004 ) &
-     &           'down GWR<0 thus cascade is to strm_farfield', i, kup, jdn, frac, istrm 
-            istrm = 0
-          ENDIF
-
           IF ( jdn>0 .AND. istrm<1 ) THEN
             IF ( Gwr_type(jdn)==0 ) THEN
               IF ( Print_debug==13 ) WRITE ( MSGUNT, 9004 ) 'Cascade ignored as down GWR is inactive', &
@@ -837,14 +800,7 @@
               IF ( istrm>0 ) THEN
                 Gwr_down(1, kup) = -istrm
               ELSE
-                ! if jdn is negative then farfield
-                IF ( jdn<0 ) THEN
-                  IF ( Print_debug==13 ) WRITE ( MSGUNT, 9006 ) i, frac, Nsegmentp1
-                  Gwr_down(1, kup) = -Nsegmentp1
-                  Outflow_gwrflg = 1
-                ELSE
-                  Gwr_down(1, kup) = jdn
-                ENDIF
+                Gwr_down(1, kup) = jdn
               ENDIF
             ENDIF
           ELSE
@@ -864,14 +820,7 @@
             IF ( istrm>0 ) THEN
               Gwr_down(kk, kup) = -istrm
             ELSE
-              ! if jdn is negative then farfield
-              IF ( jdn<0 ) THEN
-                IF ( Print_debug==13 ) WRITE ( MSGUNT, 9006 ) i, frac, Nsegmentp1
-                Gwr_down(kk, kup) = -Nsegmentp1
-                Outflow_gwrflg = 1
-              ELSE
-                Gwr_down(kk, kup) = jdn
-              ENDIF
+              Gwr_down(kk, kup) = jdn
             ENDIF
           ENDIF
         ENDIF
@@ -940,8 +889,6 @@
  9005 FORMAT ('*** WARNING, ignoring small cascade, carea<cascade_tol', &
      &        /, '    Cascade:', I7, '; GWR up:', I7, '; GWR down:', I7, &
      &        '; fraction up:', F8.2, '; cascade area:', F8.2)
- 9006 FORMAT ('*** INFO, GWR:', I6, ', fraction:', F8.2, &
-     &        ' is producing far-field flow to segment:', I6)
 
       END SUBROUTINE initgw_cascade
 
@@ -1162,7 +1109,7 @@
  9008 FORMAT ('WARNING, GWR', I7, ' does not cascade or receive flow', /, &
      &        9X, 'and gwr_swale_flag > 0 and type = 1,', /, 9X, &
      &        'type changed to 3 (swale)', /)
- 9009 FORMAT ('WARNING, GWR', I7, ' receives flow but does not cascade', &
+ 9009 FORMAT ('WARNING, GWR', I7, ' receives flow but does not cascade', /, &
      &        9X, 'and gwr_swale_flag > 0 and type = 1,', /, 9X, &
      &        'type changed to 3 (swale)', /)
  9010 FORMAT ('ERROR, GWR', I7, ' does not cascade or receive flow and gwr_swale_flag = 0')

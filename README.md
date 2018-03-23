@@ -2,7 +2,7 @@
 
 An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/).  
 
-Built upon (and backward compatible to) GSFLOW version 1.2.1.
+Built upon (and backward compatible to) GSFLOW version 1.2.2.
 
 **Model capabilities:**
 
@@ -22,7 +22,7 @@ Built upon (and backward compatible to) GSFLOW version 1.2.1.
 ### Input instructions
 ...can be found [here](/doc/input_instructions.pdf).
 
-### Current (Beta) version 0.1
+### Current (Beta) version 0.3
 **Task list:**
 
  - [x] Write & compile code

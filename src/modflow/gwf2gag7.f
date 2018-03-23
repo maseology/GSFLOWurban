@@ -153,7 +153,7 @@ C                       --DETERMINE & SAVE CROSS-REFERENCE INDEX
 C                       --RECORD INITIAL CONDITIONS FOR LAKE GAGES
 C     ******************************************************************
 
-      USE GLOBAL,       ONLY:IOUT
+      USE GLOBAL,       ONLY:IOUT,IUNIT
       USE GWFGAGMODULE
       USE GWFLAKMODULE, ONLY:NLAKES,STAGES,VOL,CLAKE
       USE GWFSFRMODULE, ONLY:NSTRM,ISTRM,IDIVAR
@@ -195,6 +195,18 @@ C2------LOOP OVER GAGING STATIONS.
          IF (IG.GT.0) THEN
 C
 C3------STREAM GAGE; SAVE STREAM REACH INDEX; WRITE HEADER LINES.
+            IF ( IUNIT(44).LT.1 ) THEN
+              WRITE(IOUT,*)
+              WRITE(IOUT,*)'***ERROR***'
+              WRITE(IOUT,*) 'STREAM GAGE SPECIFIED AND SFR2 PACKAGE IS N
+     +OT ACTIVE'
+              WRITE(IOUT,*)
+              WRITE(*,*)'***ERROR***'
+              WRITE(*,*) 'STREAM GAGE SPECIFIED AND SFR2 PACKAGE IS N
+     +OT ACTIVE'
+              CALL USTOP('')
+            END IF
+              
             IG2=IGGLST(2,IOG)
             DO 20 IRCH=1,NSTRM
                IF (ISTRM(4,IRCH).EQ.IG.AND.ISTRM(5,IRCH).EQ.IG2) THEN
@@ -447,24 +459,24 @@ C-LFK     *              DUM,DUM,(DUMMY(LK,ISOL),ISOL=1,NSOL)
  10   CONTINUE
 C
 C16-----FORMATS.
- 100  FORMAT (/2X,'*** WARNING ***   GAGE ',I3,' NOT LOCATED ON ACTIVE',
-     *   ' STREAM REACH',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I3/)
- 104  FORMAT (/2X,'*** WARNING ***   GAGE ',I3,' SPECIFIED, YET LAKES',
-     *   ' NOT ACTIVE',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I3/)
- 105  FORMAT (/2X,'*** WARNING ***   GAGE ',I3,' NOT LOCATED ON ACTIVE',
-     *   ' LAKE',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I3/)
- 200  FORMAT (1X,'"GAGE No.',I3,':  K,I,J Coord. = ',I3,',',I3,',',I3,
-     *   ';  STREAM SEGMENT = ',I3,';  REACH = ',I3,' "')
- 201  FORMAT (/2X,'*** WARNING ***  GAGE ',I3,' ON STREAM SEGMENT ',I3,
+ 100  FORMAT (/2X,'*** WARNING ***   GAGE ',I5,' NOT LOCATED ON ACTIVE',
+     *   ' STREAM REACH',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I5/)
+ 104  FORMAT (/2X,'*** WARNING ***   GAGE ',I5,' SPECIFIED, YET LAKES',
+     *   ' NOT ACTIVE',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I5/)
+ 105  FORMAT (/2X,'*** WARNING ***   GAGE ',I5,' NOT LOCATED ON ACTIVE',
+     *   ' LAKE',/10X,'NO DATA WILL BE WRITTEN TO UNIT ',I5/)
+ 200  FORMAT (1X,'"GAGE No.',I5,':  K,I,J Coord. = ',I5,',',I5,',',I5,
+     *   ';  STREAM SEGMENT = ',I5,';  REACH = ',I5,' "')
+ 201  FORMAT (/2X,'*** WARNING ***  GAGE ',I5,' ON STREAM SEGMENT ',I5,
      *   ' NOT A DIVERSION AS THERE IS NO UPSTREAM SEGMENT OR ',
      *   ' DIVERSION TYPE (IPRIOR)',/10X,
      *   ' RESETTING OUTTYPE FROM 5 TO 0')
- 202  FORMAT (/2X,'*** WARNING ***  GAGE ',I3,' ON STREAM SEGMENT ',I3,
-     *   ' REACH NO. ',I3,' IS NOT LOCATED ON FIRST REACH OF A',
+ 202  FORMAT (/2X,'*** WARNING ***  GAGE ',I5,' ON STREAM SEGMENT ',I5,
+     *   ' REACH NO. ',I5,' IS NOT LOCATED ON FIRST REACH OF A',
      *   ' DIVERSION',/10X,' RESETTING OUTTYPE FROM 5 TO 0')
- 203  FORMAT (1X,'"STREAM SEGMENT ',I3,' IS DIVERTED FROM SEGMENT ',I3,
-     *        ' DIVERSION TYPE IS IPRIOR OF ',I3,' "')
- 210  FORMAT (1X,'"GAGE No.',I3,':  Lake No. = ',I3,' "')
+ 203  FORMAT (1X,'"STREAM SEGMENT ',I5,' IS DIVERTED FROM SEGMENT ',I5,
+     *        ' DIVERSION TYPE IS IPRIOR OF ',I5,' "')
+ 210  FORMAT (1X,'"GAGE No.',I5,':  Lake No. = ',I5,' "')
  240  FORMAT (/2X,'*** ERROR ***   NSOL NEEDED BUT NOT DEFINED IN ',
      *   'GAGE PACKAGE.  PROGRAM TERMINATING.')
 C     minor format adjustments below by LFK, July 2006
@@ -505,7 +517,7 @@ C     following formats modified by LFK, July 2006:
      *           '     Concentration"')
  272  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *           '     Concentration ',
-     *           'of ',I3,' Solutes "')
+     *           'of ',I5,' Solutes "')
   275  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *          10X,'Depth',10X,'Width',6X,'Midpt-Flow',7X,
      *          'Precip.',12X,'ET',10X,'Runoff',
@@ -514,7 +526,7 @@ C     following formats modified by LFK, July 2006:
      *           10X,'Depth',10X,'Width',6X,'Midpt-Flow',7X,
      *           'Precip.',12X,'ET',10X,'Runoff',
      *           '    Concentration ',
-     *           'of ',I3,' Solutes "')
+     *           'of ',I5,' Solutes "')
  280  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *           6X,'Conductance',5X,'HeadDiff',7X,'Hyd.Grad.',
      *           '    Concentration"')
@@ -523,10 +535,10 @@ C     following formats modified by LFK, July 2006:
  282  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *           6X,'Conductance',5X,'HeadDiff',7X,'Hyd.Grad.',
      *           '    Concentration ',
-     *           'of ',I3,' Solutes "')
+     *           'of ',I5,' Solutes "')
  284  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *           '    Concentration  &  Load ',
-     *           'of ',I3,' Solutes "')
+     *           'of ',I5,' Solutes "')
 C285  FORMAT (1X,'" DATA:   Time',8X,'Stage',9X,'Flow',
  285  FORMAT (2X,'"DATA: Time',9X,'Stage',11X,'Flow',
      *           10X,'Depth',10X,'Width',6X,'Midpt-Flow',7X,
@@ -538,7 +550,7 @@ C285  FORMAT (1X,'" DATA:   Time',8X,'Stage',9X,'Flow',
      *           'Precip.',12X,'ET',10X,'Runoff',6x,'Conductance',
      *           5X,'HeadDiff',7X,'Hyd.Grad.',
      *           '    Concentration  &  Load ',
-     *           'of ',I3,' Solutes "')
+     *           'of ',I5,' Solutes "')
  290  FORMAT (2X,'"DATA: Time',9X,'Stage',8X,
      *           'Max.-Rate',5X,'Rate-Diverted',3X,
      *           'Upstream-Flow   Concentration',7X,
@@ -546,7 +558,7 @@ C285  FORMAT (1X,'" DATA:   Time',8X,'Stage',9X,'Flow',
  292  FORMAT (2X,'"DATA: Time',9X,'Stage',8X,
      *           'Max.-Rate',5X,'Rate-Diverted',3X,
      *           'Upstream-Flow   Concentration & ',
-     *           'Load of ',I3,' Solutes "')
+     *           'Load of ',I5,' Solutes "')
 C  LFK
  294  FORMAT (1X,'"****Warning: Gage ',I5,' was specified with an ',
      *        'unsaturated flow option beneath stream.'/1x,
@@ -627,17 +639,17 @@ Cdep 4/20/2009 added one term to FORMATS 404 and 405
  405  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,14(1PE14.7,1X))
  406  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,18(1PE14.7,1X))
  407  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,15(1PE14.7,1X))
- 425  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,
+ 425  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,
      +'(1PE14.7,1X))')
- 426  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I3,
+ 426  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I5,
      *'(1PE14.7,1X),11(1PE14.7,1X))')
- 427  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),
-     *1PE14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',
-     *I3,'(1PE14.7,1X),1PE14.7,1PE14.7)')
- 428  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),
-     *10(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7,
-     *1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7)')
- 429  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I3,
+ 427  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),
+     *1PE14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',
+     *I5,'(1PE14.7,1X),1PE14.7,1PE14.7)')
+ 428  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),
+     *10(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7,
+     *1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7)')
+ 429  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I5,
      *'(1PE14.7,1X),12(1PE14.7,1X))')
 C
 C17-----RELEASE MEMORY.
@@ -832,16 +844,16 @@ Cdep 4/20/2009 added one term to formats 404 and 405
  405  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,14(1PE14.7,1X))
  406  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,18(1PE14.7,1X))
  407  FORMAT (4X,1PE14.7,1X,0PF14.7,1X,15(1PE14.7,1X))
- 425  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,
+ 425  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,
      +'(1PE14.7,1X))')
- 426  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I3,
+ 426  FORMAT ('(4X,1PE14.7,1X,0PF13.7,1X,1PE14.7,1X,',I5,
      *'(1PE14.7,1X),12(1PE14.7,1X))')
- 427  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,
-     *'(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7,
-     *1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7)')
- 428  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),
-     *10(1PE14.7,1x),1PE14.7,1X,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7,
-     *1x,1PE14.7,1X,',I3,'(1PE14.7,1X),1PE14.7)')
+ 427  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,
+     *'(1PE14.7,1X),1PE14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7,
+     *1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7)')
+ 428  FORMAT ('(4X,1PE14.7,1X,0PF14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),
+     *10(1PE14.7,1x),1PE14.7,1X,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7,
+     *1x,1PE14.7,1X,',I5,'(1PE14.7,1X),1PE14.7)')
 C
 C8------RELEASE MEMORY.
       DEALLOCATE(DELCTS,DELCCUM)
@@ -1022,12 +1034,12 @@ C
  275  FORMAT (4X,1PE14.7,2X,5(1PE14.7,2X),3(1PE14.7,2X))
  280  FORMAT (4X,1PE14.7)
  285  FORMAT (20X,1PE14.7,17X,1PE14.7,11X,1PE14.7)
- 450  FORMAT ('(4X,1PE14.7,1X,2(1PE14.7,1X),',I3,'1PE14.7,1X))')
- 452  FORMAT ('(4X,1PE14.7,1X,2(1PE14.7,1X),',I3,'(2(1PE14.7,1X)))')
- 455  FORMAT ('(4X,1PE14.7,1X,8(1PE14.7,1X),',I3,'(1PE14.7,1X))')
- 460  FORMAT ('(4X,1PE14.7,1X,5(1PE14.7,1X),',I3,'(1PE14.7,1X))')
- 465  FORMAT ('(4X,1PE14.7,1X,11(1PE14.7,1X),',I3,'(2(1PE14.7,1X)))')
- 470  FORMAT ('(4X,1PE14.7,1X,4(1PE14.7,2X),',I3,'(2(1E14.7,1X)))')
+ 450  FORMAT ('(4X,1PE14.7,1X,2(1PE14.7,1X),',I5,'1PE14.7,1X))')
+ 452  FORMAT ('(4X,1PE14.7,1X,2(1PE14.7,1X),',I5,'(2(1PE14.7,1X)))')
+ 455  FORMAT ('(4X,1PE14.7,1X,8(1PE14.7,1X),',I5,'(1PE14.7,1X))')
+ 460  FORMAT ('(4X,1PE14.7,1X,5(1PE14.7,1X),',I5,'(1PE14.7,1X))')
+ 465  FORMAT ('(4X,1PE14.7,1X,11(1PE14.7,1X),',I5,'(2(1PE14.7,1X)))')
+ 470  FORMAT ('(4X,1PE14.7,1X,4(1PE14.7,2X),',I5,'(2(1E14.7,1X)))')
 C
 C13-----RELEASE MEMORY.
       DEALLOCATE(CLOAD)

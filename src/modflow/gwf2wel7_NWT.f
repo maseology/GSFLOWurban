@@ -40,7 +40,7 @@ C     ******************************************************************
 C
 C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
-      USE GLOBAL,       ONLY:IOUT,NCOL,NROW,NLAY,IFREFM
+      USE GLOBAL,       ONLY:IOUT,NCOL,NROW,NLAY,IFREFM,IUNIT
       USE GWFWELMODULE
       integer,intent(in) :: IUNITNWT,IGRID
       integer,intent(inout) :: IN
@@ -48,7 +48,7 @@ C
       CHARACTER(len=200) :: LINE
       CHARACTER(len=16) :: text        = ' WELL PACKAGE '
       LOGICAL :: found
-      character(len=40) :: keyvalue
+      INTEGER intchk, Iostat
       INTEGER NUMTABHOLD
 C     ------------------------------------------------------------------
       ALLOCATE(NWELLS,MXWELL,NWELVL,IWELCB,IPRWEL)
@@ -60,64 +60,22 @@ C     ------------------------------------------------------------------
 C
 C1------IDENTIFY PACKAGE AND INITIALIZE NWELLS.
       WRITE(IOUT,1)IN
-    1 FORMAT(1X,/1X,'WEL -- WELL PACKAGE FOR NWT VERSION 1.1.1, ',
-     1' 7/28/2016 INPUT READ FROM UNIT ',I4)
+    1 FORMAT(1X,/1X,'WEL -- WELL PACKAGE FOR NWT VERSION 1.1.3, ',
+     1' 8/01/2017 INPUT READ FROM UNIT ',I4)
       NWELLS=0
       NNPWEL=0
       IUNITRAMP=IOUT
 C
 C2------READ MAXIMUM NUMBER OF WELLS AND UNIT OR FLAG FOR
 C2------CELL-BY-CELL FLOW TERMS.
-!      LLOC=1
-      CALL URDCOM(IN,IOUT,LINE)
+      CALL URDCOM(In, IOUT, line)
       CALL UPARLSTAL(IN,IOUT,LINE,NPWEL,MXPW)
-! options for reducing pumpage and using time series input files
-      lloc = 1
-      CALL URWORD(LINE,LLOC,ISTART,ISTOP,1,I,R,IOUT,IN)
-      keyvalue = LINE(ISTART:ISTOP)
-      call upcase(keyvalue)
-      IF(keyvalue.EQ.'OPTIONS') THEN
-              write(iout,'(/1x,a)') 'PROCESSING '//
-     +              trim(adjustl(text)) //' OPTIONS'
-        do
-        CALL URDCOM(In, IOUT, line)
-        lloc = 1
-        CALL URWORD(LINE,LLOC,ISTART,ISTOP,1,I,R,IOUT,IN)
-        keyvalue = LINE(ISTART:ISTOP)
-        call upcase(keyvalue)
-        select case (keyvalue)
-! REDUCING PUMPING FOR DRY CELLS
-        case('SPECIFY')
-          CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,PSIRAMP,IOUT,IN)
-          CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,IUNITRAMP,R,IOUT,IN)
-          IF(PSIRAMP.LT.1.0E-5) PSIRAMP=1.0E-5
-          IF ( IUNITRAMP.EQ.0 ) IUNITRAMP = IOUT
-          WRITE(IOUT,*)
-          WRITE(IOUT,9) PSIRAMP,IUNITRAMP
-          IF ( Iunitnwt.EQ.0 ) write(IOUT,32)
-! SPEICYING PUMPING RATES AS TIMES SERIES INPUT FILE FOR EACH WELL
-        case('TABFILES')
-            CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,NUMTAB,R,IOUT,IN)
-            IF(NUMTAB.LT.0) NUMTAB=0
-            WRITE(IOUT,30) NUMTAB
-            CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,MAXVAL,R,IOUT,IN)
-            IF(MAXVAL.LT.0) THEN
-                MAXVAL=1
-                NUMTAB=0
-            END IF
-            WRITE(IOUT,31) MAXVAL
-            found = .true.
-        case ('END')
-          CALL URDCOM(In, IOUT, line)
-          exit
-        case default
-    ! -- No options found
-        found = .false.
-        CALL URDCOM(In, IOUT, line)
-        exit
-        end select
-      end do
-        end if
+C
+C
+C2A------CHECK FOR KEYWORDS.  
+C
+      CALL PARSEWELLOPTIONS(In, Iout, LINE, IUNITNWT)
+C
 ! ALLOCATE VARS FOR TIME SERIES WELL RATES
       NUMTABHOLD = NUMTAB
       IF ( NUMTABHOLD.EQ.0 ) NUMTABHOLD = 1
@@ -146,19 +104,6 @@ C2------CELL-BY-CELL FLOW TERMS.
     7 FORMAT(1X,'CELL-BY-CELL FLOWS WILL BE PRINTED WHEN ICBCFL NOT 0')
       IF(IWELCB.GT.0) WRITE(IOUT,8) IWELCB
     8 FORMAT(1X,'CELL-BY-CELL FLOWS WILL BE SAVED ON UNIT ',I4)
-    9 FORMAT(1X,'NEGATIVE PUMPING RATES WILL BE REDUCED IF HEAD '/
-     +       ' FALLS WITHIN THE INTERVAL PHIRAMP TIMES THE CELL '/
-     +       ' THICKNESS. THE VALUE SPECIFIED FOR PHIRAMP IS ',E12.5,/
-     +       ' WELLS WITH REDUCED PUMPING WILL BE '
-     +       'REPORTED TO FILE UNIT NUMBER',I5)
-   30 FORMAT(1X,' Pumping rates will be read from time ',
-     +                 'series input files. ',I10,' files will be read')
-   31 FORMAT(1X,' Pumping rates will be read from time ',
-     +                 'series input files. A maximum of ',I10,
-     +                 ' row entries will be read per file')
-   32       FORMAT(1X,' Option to reduce pumping during cell ',
-     +                 'dewatering is activated and NWT solver ',I10,
-     +                 ' is not being used. Option deactivated')
 C
 C3------READ AUXILIARY VARIABLES AND PRINT FLAG.
       ALLOCATE(WELAUX(20))
@@ -181,10 +126,40 @@ C3------READ AUXILIARY VARIABLES AND PRINT FLAG.
          IPRWEL = 0
          GO TO 10
       END IF
-! Check keyword for specifying PSI (NWT). !Moved above
-!      CALL URDCOM(IN,IOUT,LINE)
-!      CALL UPARLSTAL(IN,IOUT,LINE,NPP,MXVL)
-!
+! Check keyword for specifying PSI (NWT). This is to support previous versions of NWT
+      CALL URDCOM(IN,IOUT,LINE)
+      CALL UPARLSTAL(IN,IOUT,LINE,NPP,MXVL)
+      LLOC=1
+      CALL URWORD(LINE,LLOC,ISTART,ISTOP,1,I,R,IOUT,IN)
+      IF(LINE(ISTART:ISTOP).EQ.'SPECIFY') THEN
+         CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,PSIRAMP,IOUT,IN)
+         CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,IUNITRAMP,R,IOUT,IN)
+         IF ( Iunitnwt.EQ.0 ) THEN
+             write(IOUT,32)
+         ELSE
+           IF(PSIRAMP.LT.1.0E-5) PSIRAMP=1.0E-5
+           IF ( IUNITRAMP.EQ.0 ) IUNITRAMP = IOUT
+           WRITE(IOUT,*)
+           WRITE(IOUT,9) PSIRAMP,IUNITRAMP
+         END IF
+      ELSE
+         BACKSPACE IN
+         IF ( IUNITNWT.GT.0 )THEN
+           IUNITRAMP = IOUT
+      WRITE(IOUT,*)' PHIRAMP WILL BE SET TO A DEFAULT VALUE OF 1.0E-5'
+      WRITE(IOUT,*) ' WELLS WITH REDUCED PUMPING WILL BE '
+     +                      ,'REPORTED TO THE MAIN LISTING FILE'
+         END IF
+      END IF
+    9 FORMAT(1X,'NEGATIVE PUMPING RATES WILL BE REDUCED IF HEAD '/
+     +       ' FALLS WITHIN THE INTERVAL PHIRAMP TIMES THE CELL '/
+     +       ' THICKNESS. THE VALUE SPECIFIED FOR PHIRAMP IS ',E12.5,/
+     +       ' WELLS WITH REDUCED PUMPING WILL BE '
+     +       'REPORTED TO FILE UNIT NUMBER',I5)
+   32 FORMAT(1X,' Option to reduce pumping during cell ',
+     +          'dewatering is activated and NWT solver ',I10,
+     +          ' is not being used. Option deactivated')
+C
 C3A-----THERE ARE FOUR INPUT VALUES PLUS ONE LOCATION FOR
 C3A-----CELL-BY-CELL FLOW.
       NWELVL=5+NAUX
@@ -227,12 +202,128 @@ C5B-----READ INSTANCES.
   110       CONTINUE
           END IF
   120   CONTINUE
-      END IF
+          END IF
 C
 C6------RETURN
       CALL SGWF2WEL7PSV(IGRID)
       RETURN
-      END
+      END SUBROUTINE
+C
+      SUBROUTINE PARSEWELLOPTIONS(IN,IOUT,line,IUNITNWT)
+C     ******************************************************************
+C     READ WELL DATA FOR A STRESS PERIOD
+C     ******************************************************************
+C
+C        SPECIFICATIONS:
+C     ------------------------------------------------------------------
+      USE GLOBAL,       ONLY:IUNIT
+      USE GWFWELMODULE
+      USE GWFSFRMODULE, ONLY: NSS
+C
+      INTEGER, INTENT(IN) :: IN,IOUT,IUNITNWT
+      character(len=200), intent(INOUT) :: line
+C     ------------------------------------------------------------------
+C     LOCAL VARIABLES
+C     ------------------------------------------------------------------
+      INTEGER intchk, Iostat, LLOC,ISTART,ISTOP,I,IHEADER
+      logical :: found,option
+      real :: R
+      character(len=16)  :: text
+C     ------------------------------------------------------------------
+C
+      LLOC=1
+      found = .false.
+      option = .false.
+        DO
+        LLOC=1
+        CALL URWORD(LINE,LLOC,ISTART,ISTOP,1,I,R,IOUT,IN)
+        select case (LINE(ISTART:ISTOP))
+        case('OPTIONS')
+            write(iout,'(/1x,a)') 'PROCESSING '//
+     +            trim(adjustl(text)) //' OPTIONS'
+            found = .true.
+            option = .true.
+! REDUCING PUMPING FOR DRY CELLS OLD STYLE
+        case('SPECIFY')
+          CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,PSIRAMP,IOUT,IN)
+          CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,IUNITRAMP,R,IOUT,IN)
+          IF ( IUNITNWT.EQ.0 ) THEN
+            write(IOUT,32)
+          ELSE
+            IF(PSIRAMP.LT.1.0E-5) PSIRAMP=1.0E-5
+            IF ( IUNITRAMP.EQ.0 ) IUNITRAMP = IOUT
+            WRITE(IOUT,*)
+            WRITE(IOUT,9) PSIRAMP,IUNITRAMP
+          END IF
+          found = .true.
+! REDUCING PUMPING FOR DRY CELLS
+        case('PHIRAMP')
+          CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,PSIRAMP,IOUT,IN)
+          CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,IUNITRAMP,R,IOUT,IN)
+          IF ( IUNITNWT.EQ.0 ) THEN
+            write(IOUT,32)
+          ELSE
+            IF(PSIRAMP.LT.1.0E-5) PSIRAMP=1.0E-5
+            IF ( IUNITRAMP.EQ.0 ) IUNITRAMP = IOUT
+            WRITE(IOUT,*)
+            WRITE(IOUT,9) PSIRAMP,IUNITRAMP
+          END IF
+          found = .true.
+! SPEICYING PUMPING RATES AS TIMES SERIES INPUT FILE FOR EACH WELL
+        case('TABFILES')
+            CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,NUMTAB,R,IOUT,IN)
+            IF(NUMTAB.LT.0) NUMTAB=0
+            WRITE(IOUT,30) NUMTAB
+            CALL URWORD(LINE,LLOC,ISTART,ISTOP,2,MAXVAL,R,IOUT,IN)
+            IF(MAXVAL.LT.0) THEN
+                MAXVAL=1
+                NUMTAB=0
+            END IF
+            WRITE(IOUT,31) MAXVAL
+            found = .true.
+        case ('END')
+         write(iout,'(/1x,a)') 'END PROCESSING '//
+     +            trim(adjustl(text)) //' OPTIONS'
+            CALL URDCOM(In, IOUT, line)
+            found = .true.
+            exit
+          case default
+            read(line(istart:istop),*,IOSTAT=Iostat) intchk
+            if ( option ) then
+              WRITE(IOUT,*) 'Invalid '//trim(adjustl(text))
+     +                   //' Option: '//LINE(ISTART:ISTOP)
+              CALL USTOP('Invalid '//trim(adjustl(text))
+     +                   //' Option: '//LINE(ISTART:ISTOP))
+
+            elseif( Iostat .ne. 0 ) then
+              ! Not an integer.  Likely misspelled or unsupported 
+              ! so terminate here.
+              WRITE(IOUT,*) 'Invalid '//trim(adjustl(text))
+     +                   //' Option: '//LINE(ISTART:ISTOP)
+              CALL USTOP('Invalid '//trim(adjustl(text))
+     +                   //' Option: '//LINE(ISTART:ISTOP))
+            else
+              exit
+            endif
+        end select
+        if ( found ) CALL URDCOM(In, IOUT, line)
+      ENDDO
+    9 FORMAT(1X,'NEGATIVE PUMPING RATES WILL BE REDUCED IF HEAD '/
+     +       ' FALLS WITHIN THE INTERVAL PHIRAMP TIMES THE CELL '/
+     +       ' THICKNESS. THE VALUE SPECIFIED FOR PHIRAMP IS ',E12.5,/
+     +       ' WELLS WITH REDUCED PUMPING WILL BE '
+     +       'REPORTED TO FILE UNIT NUMBER',I5)
+   30 FORMAT(1X,' Pumping rates will be read from time ',
+     +                 'series input files. ',I10,' files will be read')
+   31 FORMAT(1X,' Pumping rates will be read from time ',
+     +                 'series input files. A maximum of ',I10,
+     +                 ' row entries will be read per file')
+   32 FORMAT(1X,' Option to reduce pumping during cell ',
+     +                 'dewatering is activated and NWT solver ',I10,
+     +                 ' is not being used. Option deactivated')
+      END SUBROUTINE     
+C
+C
       SUBROUTINE GWF2WEL7RP(IN,KPER,IGRID)
 C     ******************************************************************
 C     READ WELL DATA FOR A STRESS PERIOD
@@ -240,14 +331,14 @@ C     ******************************************************************
 C
 C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
-      USE GLOBAL,       ONLY:IOUT,NCOL,NROW,NLAY,IFREFM
+      USE GLOBAL,       ONLY:IOUT,NCOL,NROW,NLAY,IFREFM,IUNIT
       USE GWFWELMODULE, ONLY:NWELLS,MXWELL,NWELVL,IPRWEL,NPWEL,IWELPB,
      1                       NNPWEL,WELAUX,WELL,NUMTAB,MAXVAL,TABTIME,
      2                       TABRATE,TABVAL,TABLAY,TABROW,TABCOL
 C
       CHARACTER*6 CWELL
       CHARACTER(LEN=200)::LINE
-      INTEGER TABUNIT,I
+      INTEGER TABUNIT, I, NUMSUPSP
       REAL TTIME,TRATE
 C     ------------------------------------------------------------------
       CALL SGWF2WEL7PNT(IGRID)
@@ -312,18 +403,19 @@ C1B-----IF THERE ARE NEW NON-PARAMETER WELLS, READ THEM.
                  WRITE(IOUT,100)
                  CALL USTOP('')
              END IF
-             DO I = 1, TABVAL(J)
+             REWIND(TABUNIT)   !IN CASE FILES ARE REUSED FOR MULTIPLE WELLS
+             DO II = 1, TABVAL(J)
               LLOC = 1
               CALL URDCOM(TABUNIT,IOUT,LINE)
               CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,TTIME,IOUT,TABUNIT)
               CALL URWORD(LINE,LLOC,ISTART,ISTOP,3,I,TRATE,IOUT,TABUNIT)
-              TABTIME(I,J) = TTIME
-              TABRATE(I,J) = TRATE
+              TABTIME(II,J) = TTIME
+              TABRATE(II,J) = TRATE
              END DO
            END DO
          END IF
       END IF
-      NWELLS=NNPWEL
+      NWELLS=NNPWEL        
 C
 C1C-----IF THERE ARE ACTIVE WELL PARAMETERS, READ THEM AND SUBSTITUTE
       CALL PRESET('Q')
@@ -355,7 +447,8 @@ C     ******************************************************************
 C
 C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
-      USE GLOBAL,       ONLY:IBOUND,RHS,HCOF,LBOTM,BOTM,HNEW,IOUT
+      USE GLOBAL,       ONLY:IBOUND,RHS,HCOF,LBOTM,BOTM,HNEW,IOUT,DELR,
+     1                       DELC
       USE GWFWELMODULE, ONLY:NWELLS,WELL,PSIRAMP,TABROW,TABCOL,TABLAY, 
      1                       NUMTAB
       USE GWFNWTMODULE, ONLY: A, IA, Heps, Icell
@@ -371,14 +464,23 @@ C     ------------------------------------------------------------------
       DOUBLE PRECISION, INTENT(OUT) :: dQ
       END FUNCTION SMOOTH3
       END INTERFACE
+!External function interface
+      INTERFACE 
+      FUNCTION RATETERP(TIME,L)
+      REAL RATETERP
+      REAL, INTENT(IN) :: TIME
+      INTEGER, INTENT(IN) :: L
+      END FUNCTION RATETERP
+      END INTERFACE
 !
-      DOUBLE PRECISION Qp,Hh,Ttop,Bbot,dQp
+      DOUBLE PRECISION Qp,Hh,Ttop,Bbot,dQp,FMIN
       INTEGER Iunitnwt, NWELLSTEMP
 C     ------------------------------------------------------------------
       CALL SGWF2WEL7PNT(IGRID)
       ZERO=0.0D0
       Qp = 0.0
       NWELLSTEMP = NWELLS
+      TIME = TOTIM
       IF ( NUMTAB.GT.0 ) NWELLSTEMP = NUMTAB
 C
 C1------IF NUMBER OF WELLS <= 0 THEN RETURN.
@@ -395,7 +497,7 @@ C2------PROCESS EACH WELL IN THE WELL LIST.
         IR = TABROW(L)
         IC = TABCOL(L)
         IL = TABLAY(L)
-        Q = RATETERP(TOTIM,L)
+        Q = RATETERP(TIME,L)
       END IF
 C
 C2A-----IF THE CELL IS INACTIVE THEN BYPASS PROCESSING.
@@ -415,9 +517,11 @@ C       THE RHS ACCUMULATOR.
           A(IA(ij)) = A(IA(ij)) + dQp*Q
         ELSE
           RHS(IC,IR,IL)=RHS(IC,IR,IL)-Q
+          Qp = Q
         END IF
       ELSE
         RHS(IC,IR,IL)=RHS(IC,IR,IL)-Q
+        Qp = Q
       END IF
   100 CONTINUE
 C
@@ -432,12 +536,12 @@ C
 C        SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE GLOBAL,      ONLY:IOUT,NCOL,NROW,NLAY,IBOUND,BUFF,BOTM,LBOTM,
-     1                      HNEW
+     1                      HNEW,DELR,DELC
       USE GWFBASMODULE,ONLY:MSUM,ICBCFL,IAUXSV,DELT,PERTIM,TOTIM,
      1                      VBVL,VBNM
       USE GWFWELMODULE,ONLY:NWELLS,IWELCB,WELL,NWELVL,WELAUX,PSIRAMP,
      1                      IUNITRAMP,IPRWEL,TABROW,TABCOL,TABLAY, 
-     2                      NUMTAB
+     2                      NUMTAB,NUMTAB
       USE GWFUPWMODULE, ONLY: LAYTYPUPW
 !External function interface
       INTERFACE 
@@ -449,8 +553,17 @@ C     ------------------------------------------------------------------
         DOUBLE PRECISION, INTENT(OUT) :: dQ
         END FUNCTION SMOOTH3
       END INTERFACE
+!External function interface
+      INTERFACE 
+      FUNCTION RATETERP(TIME,L)
+      REAL RATETERP
+      REAL, INTENT(IN) :: TIME
+      INTEGER, INTENT(IN) :: L
+      END FUNCTION RATETERP
+      END INTERFACE
       CHARACTER*16 TEXT
-      DOUBLE PRECISION RATIN,RATOUT,QQ,QSAVE
+      CHARACTER*20 TEXT1
+      DOUBLE PRECISION RATIN,RATOUT,QQ,QSAVE,FMIN
       double precision Qp,Hh,Ttop,Bbot,dQp
       real Q
       INTEGER Iunitnwt, iw1, NWELLSTEMP
@@ -464,6 +577,7 @@ C1------BUDGET FLAG.
       RATIN=ZERO
       RATOUT=ZERO
       IBD=0
+      TIME = TOTIM
       Qp = 1.0
       NWELLSTEMP = NWELLS
       IF ( NUMTAB.GT.0 ) NWELLSTEMP = NUMTAB
@@ -508,7 +622,7 @@ C5C-----GET FLOW RATE FROM WELL LIST.
           IR = TABROW(L)
           IC = TABCOL(L)
           IL = TABLAY(L)
-          QSAVE = RATETERP(TOTIM,L)
+          QSAVE = RATETERP(TIME,L)
         END IF
 C
       bbot = Botm(IC, IR, Lbotm(IL))
@@ -531,14 +645,16 @@ C
       END IF
       QQ=Q
 C
-C5D-----PRINT FLOW RATE IF REQUESTED.
-      IF(IBD.LT.0) THEN
-         IF(IBDLBL.EQ.0) WRITE(IOUT,61) TEXT,KPER,KSTP
-   61    FORMAT(1X,/1X,A,'   PERIOD ',I4,'   STEP',I6) !gsf
-         WRITE(IOUT,62) L,IL,IR,IC,Q
-   62    FORMAT(1X,'WELL ',I6,'   LAYER ',I3,'   ROW ',I5,'   COL ',I5,
-     1       '   RATE ',1PG15.6)
-         IBDLBL=1
+! write wells with reduced pumping
+      IF ( Qp.LT.0.9999D0 .AND. Iunitnwt.NE.0 .AND. 
+     +     IPRWEL.NE.0 .and. Qsave < ZERO ) THEN
+          IF ( iw1.EQ.1 ) THEN
+            WRITE(IUNITRAMP,*)
+            WRITE(IUNITRAMP,300)KPER,KSTP
+            WRITE(IUNITRAMP,400)
+          END IF
+          WRITE(IUNITRAMP,500)IL,IR,IC,QSAVE,Q,hh,bbot
+          iw1 = iw1 + 1 
       END IF
 C
 C5E-----ADD FLOW RATE TO BUFFER.
@@ -560,24 +676,36 @@ C5I-----COPY FLOW TO WELL LIST.
    99 IF(IBD.EQ.2) CALL UBDSVB(IWELCB,NCOL,NROW,IC,IR,IL,Q,
      1                  WELL(:,L),NWELVL,NAUX,5,IBOUND,NLAY)
       WELL(NWELVL,L)=QQ
-! write wells with reduced pumping
-      IF ( Qp.LT.0.9999D0 .AND. Iunitnwt.NE.0 .AND. 
-     +     IPRWEL.NE.0 .and. Qsave < ZERO ) THEN
-        IF ( iw1.EQ.1 ) THEN
-          WRITE(IUNITRAMP,*)
-          WRITE(IUNITRAMP,300)KPER,KSTP
-          WRITE(IUNITRAMP,400)
-        END IF
-        WRITE(IUNITRAMP,500)IL,IR,IC,QSAVE,Q,hh,bbot
-        iw1 = iw1 + 1
-      END IF
+!
+      
+   61 FORMAT(1X,/1X,A,'   PERIOD ',I4,'   STEP ',I3)
+   62 FORMAT(1X,'WELL ',I6,'   LAYER ',I3,'   ROW ',I5,'   COL ',I5,
+     1      '   RATE ',1PG15.6)
   300 FORMAT(' WELLS WITH REDUCED PUMPING FOR STRESS PERIOD ',I5,
      1      ' TIME STEP ',I5)
   400 FORMAT('   LAY   ROW   COL         APPL.Q          ACT.Q',
      1       '        GW-HEAD       CELL-BOT')
   500 FORMAT(3I6,4E15.6)
 
-  100 CONTINUE
+  100       CONTINUE
+!
+C5D-----PRINT FLOW RATE IF REQUESTED.
+       IF(IBDLBL.EQ.0.AND.IBD.LT.0) WRITE(IOUT,61) TEXT,KPER,KSTP
+       DO L=1,NWELLSTEMP
+         IF ( NUMTAB.LE.0 ) THEN
+           IR=WELL(2,L)
+           IC=WELL(3,L)
+           IL=WELL(1,L)
+         ELSE
+           IR = TABROW(L)
+           IC = TABCOL(L)
+           IL = TABLAY(L)  
+         END IF
+         IF(IBD.LT.0) THEN
+              WRITE(IOUT,62) L,IL,IR,IC,WELL(NWELVL,L)
+         END IF
+       END DO
+C
       IF (iw1.GT.1 )WRITE(IUNITRAMP,*)
 C
 C6------IF CELL-BY-CELL FLOWS WILL BE SAVED AS A 3-D ARRAY,

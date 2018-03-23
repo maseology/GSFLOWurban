@@ -37,7 +37,7 @@
       ELSEIF ( Process(:4)=='decl' ) THEN
         obs = obsdecl()
       ELSEIF ( Process(:4)=='init' ) THEN
-        IF ( Init_vars_from_file==1 ) CALL obs_restart(1)
+        IF ( Init_vars_from_file>0 ) CALL obs_restart(1)
         obs = obsinit()
       ELSEIF ( Process(:5)=='clean' ) THEN
         IF ( Save_vars_to_file==1 ) CALL obs_restart(0)
@@ -82,7 +82,7 @@
 !***********************************************************************
       obsdecl = 0
 
-      Version_obs = 'obs.f90 2016-04-15 18:38:49Z'
+      Version_obs = 'obs.f90 2017-09-27 12:07:00Z'
       CALL print_module(Version_obs, 'Time Series Data            ', 90)
       MODNAME = 'obs'
 
@@ -179,7 +179,7 @@
       Rain_flag = 0
       IF ( Precip_flag==6 ) Rain_flag = 1
       IF ( Rain_flag==1 .OR. Model==99 ) THEN
-        IF ( declvar (MODNAME, 'rain_day', 'one', 1, 'integer', &
+        IF ( declvar(MODNAME, 'rain_day', 'one', 1, 'integer', &
      &       'Flag to set the form of any precipitation to rain (0=determine form; 1=rain)', &
      &       'none', Rain_day)/=0 ) CALL read_error(8, 'rain_day')
         IF ( declparam(MODNAME, 'rain_code', 'nmonths', 'integer', &

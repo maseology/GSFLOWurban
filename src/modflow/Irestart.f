@@ -1,8 +1,7 @@
 
       SUBROUTINE RESTART1WRITE()
 C     ******************************************************************
-C     
-C     
+C      
 C     ******************************************************************
 C
 C     SPECIFICATIONS:
@@ -127,7 +126,7 @@ C
          WRITE(IURESTARTSFR) ISTRM
          WRITE(IURESTARTSFR) SEG
          WRITE(IURESTARTSFR) ISEG
-         WRITE(IURESTARTSFR) IGGLST
+         IF ( IUNIT(46)>0 ) WRITE(IURESTARTSFR) IGGLST
          IF ( IUNIT(22)>0 ) THEN
            WRITE(IURESTARTSFR) DLKOTFLW
            WRITE(IURESTARTSFR) DLKSTAGE
@@ -163,7 +162,7 @@ C
          READ(IURESTARTSFR) ISTRM
          READ(IURESTARTSFR) SEG
          READ(IURESTARTSFR) ISEG
-         READ(IURESTARTSFR) IGGLST
+         IF ( IUNIT(46)>0 ) READ(IURESTARTSFR) IGGLST
          IF ( IUNIT(22)>0 ) THEN
            READ(IURESTARTSFR) DLKOTFLW
            READ(IURESTARTSFR) DLKSTAGE
@@ -468,7 +467,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL,      ONLY:NCOL,NROW,NLAY,IXSEC,HNEW,BUFF
       USE GWFBASMODULE,ONLY:PERTIM,TOTIM,CHEDFM,IOFLG
 !!      USE GWFBASMODULE,ONLY:PERTIM,TOTIM,LBHDSV,CHEDFM,IOFLG
-      USE GSFMODFLOW, ONLY: KPER, KSTP
+      USE GSFMODFLOW, ONLY: KKPER, KKSTP
 C
       INTEGER, INTENT(IN) :: IHEDFM
       INTEGER K, KL, I, J, IFIRST, KK, IHEDUN

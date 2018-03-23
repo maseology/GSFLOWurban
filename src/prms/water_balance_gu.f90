@@ -175,8 +175,9 @@
       USE PRMS_GWFLOW, ONLY: Basin_dnflow, Basin_gwsink, Basin_gwstor_minarea_wb, Gwres_flow, &
      &    Basin_gwstor, Basin_gwflow, Basin_gw_upslope, Basin_gwin, Gwres_sink, Hru_gw_cascadeflow, Gw_upslope, &
      &    Gwminarea_flag, Gwstor_minarea_wb, Gwin_dprst, Gwres_in, Hru_storage
-      USE PRMS_URBAN, ONLY: Urban_to_stdrn, Urban_to_infstor,Urban_to_farflow, Urban_to_strm_seg, Urban_to_lake, Urban_to_ssr, Stdrn_seep, & ! mm =======================================
-     &    Basin_dscn_stor, Basin_dscn_evap, Basin_infstor, Basin_infstor_seep, Basin_stdrn_infil, Basin_stdrn_seep, Basin_urbanfarflow, Basin_urban_to_ssr, Basin_urban_to_infstor
+      USE PRMS_URBAN, ONLY: Urban_to_stdrn, Urban_to_infstor,Urban_to_farflow, Urban_to_strm_seg, Urban_to_lake, &          ! mm begin
+     &    Urban_to_ssr, Stdrn_seep, Basin_dscn_stor, Basin_dscn_evap, Basin_infstor, Basin_infstor_seep, &
+     &    Basin_stdrn_infil, Basin_stdrn_seep, Basin_urbanfarflow, Basin_urban_to_ssr, Basin_urban_to_infstor               ! mm end
       IMPLICIT NONE
 ! Functions
       INTRINSIC ABS, DBLE, SNGL, DABS
@@ -259,7 +260,7 @@
         IF ( Cascade_flag==1 ) robal = robal + SNGL( Upslope_hortonian(i) - Hru_hortn_cascflow(i) )
         IF ( Dprst_flag==1 ) robal = robal - Dprst_evap_hru(i) + &
      &                               SNGL( Dprst_stor_ante(i) - Dprst_stor_hru(i) - Dprst_seep_hru(i) ) !- Dprst_in(i) - Dprst_insroff_hru(i)
-        IF ( Sroff_flag==4 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                                                ! mm
+        IF ( Sroff_flag==4 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                            ! mm
         basin_robal = basin_robal + DBLE( robal )
         IF ( ABS(robal)>TOOSMALL ) THEN
           IF ( Dprst_flag==1 ) THEN
@@ -311,7 +312,7 @@
         gvrbal = last_ss - Ssres_stor(i) + Soil_to_ssr(i) - Ssr_to_gw(i) - Swale_actet(i) - Dunnian_flow(i) &
      &           - Ssres_flow(i) + Pfr_dunnian_flow(i) + Pref_flow_infil(i)
         IF ( Cascade_flag==1 ) gvrbal = gvrbal - Hru_sz_cascadeflow(i)
-        IF ( Sroff_flag==4 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                         ! mm
+        IF ( Sroff_flag==4 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                              ! mm
         test = ABS( gvrbal )
         IF ( test>TOOSMALL ) THEN
           WRITE ( BALUNT, * ) 'Bad GVR balance, HRU:', i, ' hru_type:', Hru_type(i)
@@ -328,7 +329,7 @@
         IF ( Cascade_flag==1 ) waterout = waterout + Hru_sz_cascadeflow(i)
         soil_in = soil_in + DBLE(Infil(i)*perv_frac)*harea
         soilbal = waterin - waterout + last_ss - Ssres_stor(i) + (last_sm-Soil_moist(i))*perv_frac
-        IF ( Sroff_flag==4 ) soilbal = soilbal + Urban_to_ssr(i)                                                           ! mm
+        IF ( Sroff_flag==4 ) soilbal = soilbal + Urban_to_ssr(i)                                                            ! mm
         basin_bal = basin_bal + DBLE(soilbal)*harea
         test = ABS( soilbal )
         IF ( test>TOOSMALL ) THEN
@@ -468,10 +469,10 @@
      &     Basin_capillary_wb, Last_soil_moist, Basin_soil_moist, Basin_perv_et, &
      &     Basin_sm2gvr, Basin_cap_infil_tot, Basin_soil_to_gw, Basin_sm2gvr_max, Basin_capwaterin, Nowtime
       IF ( DABS(Basin_soilzone_wb)>DTOOSMALL ) WRITE ( BALUNT, * ) 'possible basin soil zone rounding issue', &
-     &     Basin_soilzone_wb!, Basin_capwaterin, Basin_pref_flow_infil, Basin_infil, &
-     !&     Last_ssstor, Basin_ssstor, Last_soil_moist, Basin_soil_moist, Basin_perv_et, Basin_swale_et, &
-     !&     Basin_sz2gw, Basin_soil_to_gw, Basin_ssflow, Basin_dunnian, Basin_dncascadeflow, &
-     !&     Basin_sm2gvr, Basin_lakeinsz, Basin_dunnian_pfr, Nowtime
+     &     Basin_soilzone_wb, Basin_capwaterin, Basin_pref_flow_infil, Basin_infil, &
+     &     Last_ssstor, Basin_ssstor, Last_soil_moist, Basin_soil_moist, Basin_perv_et, Basin_swale_et, &
+     &     Basin_sz2gw, Basin_soil_to_gw, Basin_ssflow, Basin_dunnian, Basin_dncascadeflow, &
+     &     Basin_sm2gvr, Basin_lakeinsz, Basin_dunnian_pfr, Nowtime
 
       soil_in = soil_in*Basin_area_inv
       basin_bal = basin_bal*Basin_area_inv
@@ -487,24 +488,24 @@
      &        Basin_pref_stor, Basin_slstor, Basin_dunnian_gvr, Basin_lakeevap
 
       IF ( DABS(bsmbal)>0.05D0 .OR. DABS(basin_bal)>0.001D0 ) THEN
-        WRITE ( BALUNT, * ) '*ERROR, soilzone basin water balance', bsmbal!, &
-     !&          basin_bal, Last_soil_moist, Basin_soil_moist, &
-     !&          Last_ssstor, Basin_ssstor, Basin_perv_et, Basin_sz2gw, &
-     !&          soil_in, Basin_ssflow, Basin_soil_to_gw, Basin_dunnian, &
-     !&          Basin_swale_et, Basin_lakeinsz
-     !   WRITE ( BALUNT, * ) Basin_pref_stor, Basin_slstor
+        WRITE ( BALUNT, * ) '*ERROR, soilzone basin water balance', bsmbal, &
+     &          basin_bal, Last_soil_moist, Basin_soil_moist, &
+     &          Last_ssstor, Basin_ssstor, Basin_perv_et, Basin_sz2gw, &
+     &          soil_in, Basin_ssflow, Basin_soil_to_gw, Basin_dunnian, &
+     &          Basin_swale_et, Basin_lakeinsz
+        WRITE ( BALUNT, * ) Basin_pref_stor, Basin_slstor
       ELSEIF ( DABS(bsmbal)>0.005D0 .OR. DABS(basin_bal)>DTOOSMALL ) THEN
         WRITE ( BALUNT, * ) 'Possible soilzone basin water balance ERROR', &
-     &          bsmbal!, basin_bal, Last_soil_moist, Basin_soil_moist, &
-     !&          Last_ssstor, Basin_ssstor, Basin_perv_et, Basin_sz2gw, &
-     !&          soil_in, Basin_ssflow, Basin_soil_to_gw, Basin_dunnian, &
-     !&          Basin_swale_et, Basin_lakeinsz
-     !   WRITE ( BALUNT, * ) Basin_pref_stor, Basin_slstor
+     &          bsmbal, basin_bal, Last_soil_moist, Basin_soil_moist, &
+     &          Last_ssstor, Basin_ssstor, Basin_perv_et, Basin_sz2gw, &
+     &          soil_in, Basin_ssflow, Basin_soil_to_gw, Basin_dunnian, &
+     &          Basin_swale_et, Basin_lakeinsz
+        WRITE ( BALUNT, * ) Basin_pref_stor, Basin_slstor
       ELSEIF ( DABS(bsmbal)>0.0005D0 .OR. DABS(basin_bal)>DTOOSMALL ) THEN
         WRITE ( BALUNT, '(A,2F12.7)' ) 'Basin soilzone rounding issue', bsmbal, basin_bal
-     !   WRITE ( BALUNT, * ) Basin_soilzone_wb, Basin_ssin, &
-     !&          Basin_dninterflow, Basin_sm2gvr, Basin_capwaterin, &
-     !&          soil_in, Basin_gvr2pfr, Basin_dndunnianflow, (soil_in - Basin_infil)
+        WRITE ( BALUNT, * ) Basin_soilzone_wb, Basin_ssin, &
+     &          Basin_dninterflow, Basin_sm2gvr, Basin_capwaterin, &
+     &          soil_in, Basin_gvr2pfr, Basin_dndunnianflow, (soil_in - Basin_infil)
       ENDIF
 
 ! gwflow

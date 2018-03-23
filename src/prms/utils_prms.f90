@@ -1,4 +1,4 @@
-      ! utils_prms.f90 2016-05-10 15:48:00Z
+      ! utils_prms.f90 2018-02-23 14:04:00Z
 !***********************************************************************
 !     Read CBH File to current time
 !***********************************************************************
@@ -65,10 +65,10 @@
               Day_file = 0
               RETURN
             ENDIF
-            IF ( Month_file>=Month ) i = 1
+            IF ( Month_file>=Month .OR. Year_file/=Year ) i = 1
           ENDDO
         ENDIF
-        IF ( Month_file==Month ) THEN
+        IF ( Year_file==Year .AND. Month_file==Month ) THEN
           IF ( Day_file<Day ) THEN
             i = 0
             DO WHILE ( i==0 )
@@ -91,21 +91,36 @@
 !     Read File to line before data starts in file
 !***********************************************************************
       SUBROUTINE find_header_end(Iunit, Fname, Paramname, Iret, Cbh_flag, Cbh_binary_flag)
-      USE PRMS_MODULE, ONLY: Nhru, Orad_flag
+      USE PRMS_MODULE, ONLY: Nhru, Orad_flag, Print_debug
       IMPLICIT NONE
 ! Argument
       INTEGER, INTENT(IN) :: Cbh_flag, Cbh_binary_flag
       INTEGER, INTENT(OUT) :: Iunit, Iret
       CHARACTER(LEN=*), INTENT(IN) :: Fname, Paramname
 ! Functions
-      EXTERNAL :: PRMS_open_input_file
+      INTRINSIC :: trim
+      INTEGER, EXTERNAL :: get_ftnunit
 ! Local Variables
       INTEGER :: i, ios, dim
       CHARACTER(LEN=4) :: dum
       CHARACTER(LEN=80) :: dum2
 !***********************************************************************
-      CALL PRMS_open_input_file(Iunit, Fname, Paramname, Cbh_binary_flag, Iret)
-      IF ( Iret==0 ) THEN
+      Iunit = get_ftnunit(777)
+      IF ( Cbh_binary_flag==0 ) THEN
+        OPEN ( Iunit, FILE=trim(Fname), STATUS='OLD', IOSTAT=ios )
+      ELSE
+        OPEN ( Iunit, FILE=trim(Fname), STATUS='OLD', FORM='UNFORMATTED', IOSTAT=ios )
+      ENDIF
+      IF ( ios/=0 ) THEN
+        IF ( Iret==2 ) THEN ! this signals climate_hru to ignore the Humidity CBH file, could add other files
+          IF ( Print_debug>-1 ) &
+     &         WRITE ( *, '(/,A,/,A,/,A)' ) 'WARNING, optional CBH file not found, will use associated parameter values'
+        ELSE
+          WRITE ( *, '(/,A,/,A,/,A)' ) 'ERROR reading file:', Fname, 'check to be sure the input file exists'
+          Iret = 1
+        ENDIF
+        RETURN
+      ELSE
 ! read to line before data starts in each file
         i = 0
         DO WHILE ( i==0 )
@@ -149,6 +164,7 @@
           ENDIF
         ENDDO
       ENDIF
+      Iret = ios
       END SUBROUTINE find_header_end
 
 !**********************
@@ -815,29 +831,32 @@
 ! print module version information to user's screen
 !***********************************************************************
       SUBROUTINE print_module(Versn, Description, Ftntype)
-      USE PRMS_MODULE, ONLY: PRMS_output_unit, Model, Logunt
+      USE PRMS_MODULE, ONLY: PRMS_output_unit, Model, Logunt, Print_debug
       IMPLICIT NONE
       ! Arguments
       CHARACTER(LEN=*), INTENT(IN) :: Description, Versn
       INTEGER, INTENT(IN) :: Ftntype
       ! Functions
-      INTRINSIC INDEX
+      INTRINSIC INDEX, TRIM
       ! Local Variables
-      INTEGER nc, n, nb
-      CHARACTER(LEN=72) :: buffer
-      CHARACTER(LEN=32), PARAMETER :: blanks = '                                '
+      INTEGER nc, n, nb, is
+      CHARACTER(LEN=28) :: blanks
+      CHARACTER(LEN=80) :: string
 !***********************************************************************
-      nc = INDEX( Versn, 'Z' )
+      nc = INDEX( Versn, 'Z' ) - 10
+      n = INDEX( Versn, '.f' ) - 1
+      IF ( n<1 ) n = 1
       IF ( Ftntype==90 ) THEN
-        n = INDEX( Versn, '.f90' ) + 3
+        is = 5
       ELSE
-        n = INDEX( Versn, '.f' ) + 1
+        is = 3
       ENDIF
-      nb = 25 - n
-      WRITE (buffer, '(A)' ) Description//'     '//Versn(:n)//blanks(:nb)//Versn(n+2:nc-10)
-      PRINT '(A)', buffer
-      WRITE ( Logunt, '(A)' ) buffer
-      IF ( Model/=2 ) WRITE ( PRMS_output_unit, '(A)' ) buffer
+      blanks = ' '
+      nb = 29 - (n + 3)
+      string = Description//'   '//Versn(:n)//blanks(:nb)//Versn(n+is:nc)
+      IF ( Print_debug>-1 ) PRINT '(A)', TRIM( string )
+      WRITE ( Logunt, '(A)' ) TRIM( string )
+      IF ( Model/=2 ) WRITE ( PRMS_output_unit, '(A)' ) TRIM( string )
       END SUBROUTINE print_module
 
 !***********************************************************************
@@ -963,6 +982,29 @@
       END SUBROUTINE checkdim_param_limits
 
 !***********************************************************************
+!     Check parameter value against bounded dimension
+!***********************************************************************
+      SUBROUTINE checkdim_bounded_limits(Param, Bound, Param_value, Num_values, Lower_val, Upper_val, Iret)
+! Arguments
+      CHARACTER(LEN=*), INTENT(IN) :: Param, Bound
+      INTEGER, INTENT(IN) :: Num_values, Param_value(Num_values), Lower_val, Upper_val
+      INTEGER, INTENT(OUT) :: Iret
+! Local Variable
+      INTEGER :: i
+!***********************************************************************
+      Iret = 0
+      DO i = 1, Num_values
+        IF ( Param_value(i)<Lower_val .OR. Param_value(i)>Upper_val ) THEN
+          PRINT *, 'ERROR, out-of-bounds value for bounded parameter: ', Param
+          PRINT *, '       value:  ', Param_value(i), '; array index:', i
+          PRINT *, '       minimum:', Lower_val, '; maximum is dimension ', Bound, ' =', Upper_val
+          PRINT *, ' '
+          Iret = 1
+        ENDIF
+      ENDDO
+    END SUBROUTINE checkdim_bounded_limits
+
+!***********************************************************************
 !     Check parameter value < 0.0
 !***********************************************************************
       SUBROUTINE check_param_zero(Indx, Param, Param_value, Iret)
@@ -985,8 +1027,8 @@
 ! and compute some basin variables
 !***********************************************************************
       SUBROUTINE check_nhru_params()
-      USE PRMS_MODULE, ONLY: Temp_flag, Ntemp, Nevap, Print_debug, Inputerror_flag
-      USE PRMS_BASIN, ONLY: Hru_type, Active_hrus, Hru_route_order, Cov_type
+      USE PRMS_MODULE, ONLY: Temp_flag, Ntemp, Nevap, Inputerror_flag
+      USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order
       USE PRMS_CLIMATEVARS, ONLY: Hru_tsta, Hru_pansta, Use_pandata
       IMPLICIT NONE
 ! Functions
@@ -1000,18 +1042,8 @@
       ! Sanity checks for parameters
       DO j = 1, Active_hrus
         i = Hru_route_order(j)
-
         IF ( check_tsta==1 ) CALL checkdim_param_limits(i, 'hru_tsta', 'ntemp', Hru_tsta(i), 1, Ntemp, Inputerror_flag)
-
         IF ( Use_pandata==1 ) CALL checkdim_param_limits(i, 'hru_pansta', 'nevap', Hru_pansta(i), 1, Nevap, Inputerror_flag)
-
-        IF ( Hru_type(i)==2 ) THEN
-          IF ( Cov_type(i)/=0 ) THEN
-            IF ( Print_debug>-1 ) PRINT *,  'WARNING, cov_type must be 0 for lakes, reset from:', Cov_type(i), ' to 0 for HRU:', i
-            Cov_type(i) = 0
-          ENDIF
-          CYCLE
-        ENDIF
       ENDDO
 
       END SUBROUTINE check_nhru_params

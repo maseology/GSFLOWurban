@@ -59,7 +59,7 @@ C5------FOR EACH OBS WELL, THERE ARE 6 DATA VALUES
       ALLOCATE (MNWILST(NMNWIVL,MNWOBS))
 C5------ALLOCATE SPACE FOR MNWIID ARRAY.
       ALLOCATE (MNWIID(MNWOBS+1))
-	END IF
+      END IF
 C7------SAVE POINTERS TO DATA AND RETURN.
       CALL SGWF2MNW2IPSV(IGRID)
 C
@@ -224,6 +224,7 @@ c--LFK  Nov. 2012
       CHARACTER*50 LFRMAT
 c--lfk
       CHARACTER*50 dtext
+c
 c------------------------------------------------------------------
 c-lfk  10/10/2012
       dtext = 'Hwell < value shown because of seepage face calc. '
@@ -285,7 +286,7 @@ c  Print QSUM file
       if(QSUMflag.gt.0) then
 c   Write header
         if(kkstp.eq.1.and.kkper.eq.1) then
-           write(QSUMflag,'(200A)') 'WELLID                   Totim    
+           write(QSUMflag,'(200A)') 'WELLID                    Totim    
      &        Qin           Qout           Qnet          hwell'
         end if
 c   Loop over all wells
@@ -334,10 +335,10 @@ c--LFK  update Hwell to realistic value (not Hnew)for single-node MNW wells
                    write(QSUMflag,'(A20,5(1x,1Pg14.6),3x,A50)')
      &              WELLID(iw),totim,qin,qout,qnet,hwell,dtext
                 else
-                   write(QSUMflag,'(A20,5(1x,1Pg14.6))')
+            write(QSUMflag,'(A20,5(1x,1Pg14.6))')
      &              WELLID(iw),totim,qin,qout,qnet,hwell
-                end if
-              end if
+            end if
+           end if
 c--LFK
           end if
         end do     
@@ -357,9 +358,6 @@ c   Only operate on active wells (MNW2(1,iw)=1)
 c   Loop over nodes in well
             firstnode=MNW2(4,iw)
             lastnode=MNW2(4,iw)+ABS(MNW2(2,iw))-1
-c--lfk  Nov. 2012
-c            numnddel=lastnode-firstnode
-c--lfk
             hwell=MNW2(17,iw)
             do INODE=firstnode,lastnode
               il=MNWNOD(1,INODE)              
@@ -371,7 +369,6 @@ c--lfk
 c   If no seepage face in cell, don't print seepage elev.
               if(MNWNOD(15,INODE).EQ.hwell.or.
 c--lfk  Nov. 2012
-c     &           MNWNOD(15,INODE).eq.Hdry.OR.numnddel.eq.0) then
      &           MNWNOD(15,INODE).eq.Hdry) then
 c--lfk     &           MNWNOD(15,INODE).eq.Hdry.OR.MNW2(2,iw).eq.1) then
                 write(BYNDflag,'(A20,4i6,1x,1P4e14.6)')
@@ -387,10 +384,10 @@ c--LFK  update Hwell to realistic value (not Hnew)for single-node MNW wells
      &                WELLID(iw),nd,il,ir,ic,totim,q,hwell,hcell,
      &                MNWNOD(15,INODE),dtext
                 else
-                    write(BYNDflag,'(A20,4i6,1x,1P5e14.6)')
-     &                WELLID(iw),nd,il,ir,ic,totim,q,hwell,hcell,
-     &                MNWNOD(15,INODE)
-                end if
+                write(BYNDflag,'(A20,4i6,1x,1P5e14.6)')
+     &              WELLID(iw),nd,il,ir,ic,totim,q,hwell,hcell,
+     &              MNWNOD(15,INODE)
+              end if
 c--LFK
               end if
             end do
@@ -447,6 +444,7 @@ c--LFK  update Hwell to realistic value (not Hnew)for single-node MNW wells
 c--LFK
 c   Cumulative volume for this well
           MNWILST(2,iwobs)=MNWILST(2,iwobs)+qnet*DELT
+            
 c get NNODES
           NNODES=INT(ABS(MNW2(2,iw)))
 c
@@ -454,6 +452,23 @@ c  Print according to flags
           QNDflag=INT(MNWILST(4,iwobs))
           QBHflag=INT(MNWILST(5,iwobs))
           QCONCflag=INT(MNWILST(6,iwobs))
+c--LFK(Nov.2016)--make sure QNDflag and QBHflag = 0 when NNODES=1 
+c         (as described on p. 53 of model documentation).
+          IF(NNODES.EQ.1) THEN
+             IF(QNDflag.GT.0) then
+               QNDflag=0
+               MNWILST(4,iwobs)=0
+               write(iout,30) WELLID(iwobs)
+   30 FORMAT('**note** NNODES=1 IN WELL: ',A20,'; QNDflag reset to 0.')    
+             END IF  
+              IF(QBHflag.GT.0) then
+               QBHflag=0
+               MNWILST(5,iwobs)=0
+               write(iout,32) WELLID(iwobs)
+   32 FORMAT('**note** NNODES=1 IN WELL: ',A20,'; QBHflag reset to 0.')    
+             END IF  
+C            
+          END IF
 c
           if(QBHflag.gt.0)  
      &      call GWF2MNW27BH(iw,IGRID)
@@ -465,19 +480,11 @@ c--lfk/Nov.2012:  eliminate separate processing for single-node MNW wells
 c          if(NNODES.eq.1) then
 c            if(kkstp.eq.1.and.kkper.eq.1) then
 c          Write (INT(MNWILST(3,iwobs)),'(A)') 'WELLID                
-c     &      TOTIM           Qin
+c     &       TOTIM           Qin
 c     &          Qout          Qnet         QCumu         hwell'
 c            end if
-C-LFK       write(INT(MNWILST(3,iwobs)),'(A20,1x,1P6e14.6)')
-c            if (MNW2(1,iw).EQ.1)then
-c               write(INT(MNWILST(3,iwobs)),
-c     &             '(A20,1x,1P6e14.6)')
+c            write(INT(MNWILST(3,iwobs)),'(A20,1x,1P6e14.6)')
 c     &             WELLID(iw),totim,qin,qout,qnet,MNWILST(2,IWOBS),hwell
-c            else
-c               write(INT(MNWILST(3,iwobs)),
-c     &             '(A20,1x,1Pe14.6,"   (Well is inactive)")')
-c     &             WELLID(iw),totim
-c            end if
 c          else
 c  all multi-node well output below
           if(QNDflag.eq.0) then
@@ -487,7 +494,7 @@ c  QNDflag=0, QBHflag=0, QCONCflag=0
 c write header
                 if(kkstp.eq.1.and.kkper.eq.1) then
           Write (INT(MNWILST(3,iwobs)),'(120A)') 'WELLID                
-     &      TOTIM           Qin
+     &       TOTIM           Qin
      &          Qout          Qnet      Cum.Vol.         hwell
      &   '
                 end if
@@ -495,7 +502,7 @@ c   Only operate on active wells (MNW2(1,iw)=1)
                 if (MNW2(1,iw).EQ.1) then
 c--lfk
                   if (sftest.lt.1.0) then
-                   write(INT(MNWILST(3,iwobs)),'(A20,1x,1P6e14.6)')
+                write(INT(MNWILST(3,iwobs)),'(A20,1x,1P6e14.6)')
      &             WELLID(iw),totim,qin,qout,qnet,MNWILST(2,IWOBS),hwell
                   else
                  write(INT(MNWILST(3,iwobs)),'(A20,1x,1P6e14.6,3x,A50)')
@@ -640,6 +647,7 @@ C  Create format for header
      &            WELLID(iw),totim,qin,qout,qnet,MNWILST(2,IWOBS),hwell,
      &              (MNWNOD(4,i),i=firstnode,lastnode),
      &              (MNWNOD(27,i),i=firstnode,lastnode)
+
                 end if
               else
 c  QNDflag=1, QBHflag=1, QCONCflag=1

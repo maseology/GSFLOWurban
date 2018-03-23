@@ -44,7 +44,7 @@ void setup_cont (void) {
 /*
 **	GSFLOW control variables
 */
-        decl_control_string ("model_mode", "GSFLOW");
+        decl_control_string ("model_mode", "PRMS");
         decl_control_string ("modflow_name", "modflow.nam");
         decl_control_string ("precip_module", "precip_1sta");
         decl_control_string ("temp_module", "temp_1sta");
@@ -185,6 +185,10 @@ void setup_cont (void) {
 		lval[0] = 0;
 		decl_control_int_array ("stream_temp_flag", 1, lval);
 
+		lval = (long *)umalloc(sizeof (long));
+		lval[0] = 0;
+		decl_control_int_array("stream_temp_shade_flag", 1, lval);
+
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array ("segment_transferON_OFF", 1, lval);
@@ -310,8 +314,11 @@ void setup_cont (void) {
 		decl_control_string ("sro2dprst_perv_dynamic", "dynsro2dprst_perv");
 		decl_control_string ("sro2dprst_imperv_dynamic", "dynsro2dprst_imperv");
 		decl_control_string ("transp_on_dynamic", "dyntranspon");
-		decl_control_string ("csv_output_file", "gsflow.csv");
+		decl_control_string ("csv_output_file", "prms_summary.csv");
         decl_control_string ("nhruOutBaseFileName", "nhruout_path");
+		decl_control_string ("nsubOutBaseFileName", "nsubout_path");
+		decl_control_string ("basinOutBaseFileName", "basinout_path");
+		decl_control_string("nsegmentOutBaseFileName", "nsegmentout_path");
 /*
 **	run start and end times
 */
@@ -382,7 +389,47 @@ void setup_cont (void) {
 		decl_control_int_array("nhruOut_freq", 1, lval);
 		lval[0] = 1;
 		decl_control_int_array("prms_warmup", 1, lval);
-		
+
+
+		/*
+		**	nsub_summary
+		*/
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("nsubOutON_OFF", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("nsubOutVars", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("nsubOut_freq", 1, lval);
+
+		/*
+		**	basin_summary
+		*/
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("basinOutON_OFF", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("basinOutVars", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("basinOut_freq", 1, lval);
+
+		/*
+		**	nsegment_summary
+		*/
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("nsegmentOutON_OFF", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("nsegmentOutVars", 1, lval);
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("nsegmentOut_freq", 1, lval);
+
 /*
 **	graphics display
 */

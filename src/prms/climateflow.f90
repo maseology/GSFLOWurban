@@ -24,16 +24,17 @@
 !   Declared Variables - Transp
       INTEGER, SAVE :: Basin_transp_on
       INTEGER, SAVE, ALLOCATABLE :: Transp_on(:)
-!   Declared Variables - Potetential ET
-      DOUBLE PRECISION, SAVE :: Basin_potet
+!   Declared Parameters and Variables - Potential ET
+      DOUBLE PRECISION, SAVE :: Basin_potet, Basin_humidity
       REAL, SAVE, ALLOCATABLE :: Potet(:)
       ! for potet_pt, potet_pm and potet_pm_sta
       REAL, SAVE, ALLOCATABLE :: Tempc_dewpt(:), Vp_actual(:), Lwrad_net(:), Vp_slope(:)
       REAL, SAVE, ALLOCATABLE :: Vp_sat(:)
+      REAL, SAVE, ALLOCATABLE :: Humidity_percent(:, :)
 !   Declared Parameters and Variables - Solar Radiation
       INTEGER, SAVE :: Basin_solsta
       INTEGER, SAVE, ALLOCATABLE :: Hru_solsta(:), Hru_pansta(:)
-      DOUBLE PRECISION, SAVE :: Basin_potsw, Basin_orad, Basin_horad
+      DOUBLE PRECISION, SAVE :: Basin_potsw, Basin_swrad, Basin_orad, Basin_horad
       REAL, SAVE :: Rad_conv, Orad
       REAL, SAVE, ALLOCATABLE :: Swrad(:), Orad_hru(:)
       REAL, SAVE, ALLOCATABLE :: Ppt_rad_adj(:, :), Radmax(:, :), Radj_sppt(:), Radj_wppt(:)
@@ -128,7 +129,7 @@
 !***********************************************************************
       climateflow_decl = 0
 
-      Version_climateflow = 'climateflow.f90 2016-07-22 17:22:00Z'
+      Version_climateflow = 'climateflow.f90 2018-01-23 14:03:00Z'
       CALL print_module(Version_climateflow, 'Common States and Fluxes    ', 90)
       MODNAME = 'climateflow'
 
@@ -251,6 +252,10 @@
      &     'Potential shortwave radiation for the basin centroid', &
      &     'Langleys', Basin_horad)/=0 ) CALL read_error(3, 'basin_horad')
 
+      IF ( declvar(Solrad_module, 'basin_swrad', 'one', 1, 'double', &
+     &     'Basin area-weighted average shortwave radiation', &
+     &     'Langleys', Basin_swrad)/=0 ) CALL read_error(3, 'basin_swrad')
+
       IF ( declvar(Solrad_module, 'basin_potsw', 'one', 1, 'double', &
      &     'Basin area-weighted average shortwave radiation', &
      &     'Langleys', Basin_potsw)/=0 ) CALL read_error(3, 'basin_potsw')
@@ -288,6 +293,9 @@
 
       IF ( Et_flag==5 .OR. Et_flag==11 .OR. Et_flag==6 .OR. Model==99 ) THEN
       ! For potet_pt,potet_pm and potet_pm_sta
+        IF ( declvar(Et_module, 'basin_humidity', 'one', 1, 'double', &
+     &       'Basin area-weighted average humidity', &
+     &       'percentage', Basin_humidity)/=0 ) CALL read_error(3, 'basin_humidity')
         ALLOCATE ( Tempc_dewpt(Nhru) )
         IF ( declvar(Et_module, 'tempc_dewpt', 'nhru', Nhru, 'real', &
      &       'Air temperature at dew point for each HRU', &
@@ -310,6 +318,12 @@
      &         'Saturation vapor pressure for each HRU', &
      &         'kilopascals', Vp_sat)/=0 ) CALL read_error(3, 'vp_sat')
         ENDIF
+        ALLOCATE ( Humidity_percent(Nhru,12) )
+        IF ( declparam(Et_module, 'humidity_percent', 'nhru,nmonths', 'real', &
+     &       '0.0', '0.0', '100.0', &
+     &       'Monthy humidity for each HRU', &
+     &       'Monthy humidity for each HRU', &
+     &       'percentage')/=0 ) CALL read_error(1, 'humidity_percent')
       ENDIF
 
 ! Soilzone variables
@@ -451,7 +465,7 @@
      &     'cfs', Basin_sroff_cfs)/=0 ) CALL read_error(3, 'basin_sroff_cfs')
 
       IF ( declvar(Strmflow_module, 'basin_ssflow_cfs', 'one', 1, 'double', &
-     &     'Interflow leaving the basin through the stream network',  &
+     &     'Interflow leaving the basin through the stream network', &
      &     'cfs', Basin_ssflow_cfs)/=0 ) CALL read_error(3, 'basin_ssflow')
 
       IF ( declvar(Strmflow_module, 'basin_gwflow_cfs', 'one', 1, 'double', &
@@ -578,7 +592,7 @@
 
       ALLOCATE ( Adjmix_rain(Nhru,12) )
       IF ( declparam(Precip_module, 'adjmix_rain', 'nhru,nmonths', 'real', &
-     &     '1.0', '0.6', '1.4', &
+     &     '1.0', '0.0', '3.0', &
      &     'Adjustment factor for rain in a rain/snow mix', &
      &     'Monthly (January to December) factor to adjust rain proportion in a mixed rain/snow event', &
      &     'decimal fraction')/=0 ) CALL read_error(1, 'adjmix_rain')
@@ -732,14 +746,14 @@
       INTEGER FUNCTION climateflow_init()
       USE PRMS_CLIMATEVARS
       USE PRMS_FLOWVARS
-      USE PRMS_MODULE, ONLY: Temp_flag, Precip_flag, Nhru, Temp_module, Precip_module, &
-     &    Solrad_module, Soilzone_module, Srunoff_module, Stream_order_flag, Ntemp, Nrain, Nsol, &
-     &    Init_vars_from_file, Inputerror_flag, Dprst_flag, Solrad_flag, Et_flag
+      USE PRMS_MODULE, ONLY: Temp_flag, Precip_flag, Nhru, Temp_module, Precip_module, Parameter_check_flag, &
+     &    Solrad_module, Soilzone_module, Srunoff_module, Stream_order_flag, Ntemp, Nrain, Nsol, Nevap, &
+     &    Init_vars_from_file, Inputerror_flag, Dprst_flag, Solrad_flag, Et_flag, Et_module, Humidity_cbh_flag
       USE PRMS_BASIN, ONLY: Elev_units, FEET2METERS, METERS2FEET, Active_hrus, Hru_route_order
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: getparam
-      EXTERNAL :: checkdim_param_limits
+      EXTERNAL :: checkdim_param_limits, checkdim_bounded_limits
       REAL, EXTERNAL :: c_to_f, f_to_c
 ! Local variables
       INTEGER :: i, j, ierr
@@ -761,14 +775,14 @@
 
       IF ( getparam('snowcomp', 'potet_sublim', Nhru, 'real', Potet_sublim)/=0 ) CALL read_error(2, 'potet_sublim')
 
-      IF ( Temp_flag==1 .OR. Temp_flag==2 .OR. Temp_flag==5 .OR. Temp_flag==6 ) THEN
+      IF ( Temp_flag==1 .OR. Temp_flag==2 .OR. Temp_flag==3 .OR. Temp_flag==5 .OR. Temp_flag==6 ) THEN
         IF ( getparam(Temp_module, 'tmax_adj', Nhru*12, 'real', Tmax_aspect_adjust)/=0 ) CALL read_error(2, 'tmax_adj')
         IF ( getparam(Temp_module, 'tmin_adj', Nhru*12, 'real', Tmin_aspect_adjust)/=0 ) CALL read_error(2, 'tmin_adj')
       ENDIF
 
       IF ( getparam(Temp_module, 'temp_units', 1, 'integer', Temp_units)/=0 ) CALL read_error(2, 'temp_units')
 
-      IF ( Temp_flag<5 ) THEN
+      IF ( Temp_flag<4 ) THEN
         IF ( getparam(Temp_module, 'basin_tsta', 1, 'integer', Basin_tsta)/=0 ) CALL read_error(2, 'basin_tsta')
         CALL checkdim_param_limits(1, 'basin_tsta', 'ntemp', Basin_tsta, 1, Ntemp, Inputerror_flag)
       ELSE
@@ -777,6 +791,7 @@
 
       IF ( Temp_flag==1 .OR. Temp_flag==2 ) THEN
         IF ( getparam(Temp_module, 'hru_tsta', Nhru, 'integer', Hru_tsta)/=0 ) CALL read_error(2, 'hru_tsta')
+        IF ( Parameter_check_flag>0 ) CALL checkdim_bounded_limits('hru_tsta', 'ntemp', Hru_tsta, Nhru, 1, Ntemp, ierr)
       ENDIF
 
       IF ( getparam(Precip_module, 'tmax_allsnow', Nhru*12, 'real', Tmax_allsnow)/=0 ) CALL read_error(2, 'tmax_allsnow')
@@ -822,19 +837,22 @@
         Solsta_flag = 0
         IF ( Nsol>0 ) THEN
           IF ( getparam(Solrad_module, 'basin_solsta', 1, 'integer', Basin_solsta)/=0 ) CALL read_error(2, 'basin_solsta')
-          CALL checkdim_param_limits(1, 'basin_solsta', 'nsol', Basin_solsta, 1, Nsol, Inputerror_flag)
 
           IF ( getparam(Solrad_module, 'rad_conv', 1, 'real', Rad_conv)/=0 ) CALL read_error(2, 'rad_conv')
 
           IF ( getparam(Solrad_module, 'hru_solsta', Nhru, 'integer', Hru_solsta)/=0 ) CALL read_error(2, 'hru_solsta')
+
+          IF ( Parameter_check_flag>0 ) THEN
+            CALL checkdim_param_limits(1, 'basin_solsta', 'nsol', Basin_solsta, 1, Nsol, Inputerror_flag)
+            CALL checkdim_bounded_limits('hru_solsta', 'nsol', Hru_solsta, Nhru, 0, Nsol, ierr)
+            IF ( ierr==1 ) Inputerror_flag = 1
+          ENDIF
+
           DO j = 1, Active_hrus
             i = Hru_route_order(j)
-            ierr = 0
-            CALL checkdim_param_limits(i, 'hru_solsta', 'nsol', Hru_solsta(i), 0, Nsol, ierr)
-            IF ( ierr==0 ) THEN
-              IF ( Hru_solsta(i)>0 ) Solsta_flag = 1
-            ELSE
-              Inputerror_flag = 1
+            IF ( Hru_solsta(i)>0 ) THEN
+              Solsta_flag = 1
+              EXIT
             ENDIF
           ENDDO
         ENDIF
@@ -849,6 +867,10 @@
 
       IF ( Use_pandata==1 ) THEN
         IF ( getparam(MODNAME, 'hru_pansta', Nhru, 'integer', Hru_pansta)/=0 ) CALL read_error(2, 'hru_pansta')
+        IF ( Parameter_check_flag>0 ) THEN
+          CALL checkdim_bounded_limits('hru_pansta', 'nevap', Hru_pansta, Nhru, 1, Nevap, ierr)
+          IF ( ierr==1 ) Inputerror_flag = 1
+        ENDIF
       ENDIF
 
       IF ( getparam('intcp', 'epan_coef', Nhru*12, 'real', Epan_coef)/=0 ) CALL read_error(2, 'epan_coef')
@@ -893,16 +915,24 @@
       Orad = 0.0
       Basin_horad = 0.0D0
       Basin_potsw = 0.0D0
+      Basin_swrad = 0.0D0
       Transp_on = 0
       Basin_transp_on = 0
       Basin_potet = 0.0D0
       Potet = 0.0
+      Basin_humidity = 0.0D0
       IF ( Et_flag==5 .OR. Et_flag==11 .OR. Et_flag==6 ) THEN
         Tempc_dewpt = 0.0
         Vp_actual = 0.0
         Lwrad_net = 0.0
         Vp_slope = 0.0
         IF ( Et_flag==11 .OR. Et_flag==6 ) Vp_sat = 0.0
+        IF ( Humidity_cbh_flag==0 ) THEN
+          IF ( getparam(Et_module, 'humidity_percent', Nhru*12, 'real', Humidity_percent)/=0 ) &
+     &         CALL read_error(2, 'humidity_percent')
+        ELSE
+          Humidity_percent = 1.0
+        ENDIF
       ENDIF
       Basin_orad = 0.0D0
       IF ( Solrad_flag==1 .OR. Solrad_flag==2 ) Orad_hru = 0.0
@@ -1142,7 +1172,7 @@
           WRITE ( Restart_outunit ) Vp_actual
           WRITE ( Restart_outunit ) Lwrad_net
           WRITE ( Restart_outunit ) Vp_slope
-          IF ( Et_flag==11.OR. Et_flag==6 ) WRITE ( Restart_outunit ) Vp_sat
+          IF ( Et_flag==11 .OR. Et_flag==6 ) WRITE ( Restart_outunit ) Vp_sat
         ENDIF
       ELSE
         READ ( Restart_inunit ) module_name

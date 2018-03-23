@@ -144,10 +144,6 @@
     <ClInclude Include="..\src\mmf\mms.h" />
     <ClInclude Include="..\src\mmf\protos.h" />
     <ClInclude Include="..\src\mmf\structs.h" />
-    <ClInclude Include="..\src\modflow\ccfd.h" />
-    <ClInclude Include="..\src\modflow\mf2kgmg.h" />
-    <ClInclude Include="..\src\modflow\r_vector.h" />
-    <ClInclude Include="..\src\modflow\solvers.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\mmf\alloc_space.c" />
@@ -201,11 +197,6 @@
     <ClCompile Include="..\src\mmf\umalloc_etc.c" />
     <ClCompile Include="..\src\mmf\var_addr.c" />
     <ClCompile Include="..\src\mmf\write_vstats.c" />
-    <ClCompile Include="..\src\modflow\ccfd.c" />
-    <ClCompile Include="..\src\modflow\mf2kgmg.c" />
-    <ClCompile Include="..\src\modflow\mf2kgmg_wrap.c" />
-    <ClCompile Include="..\src\modflow\r_vector.c" />
-    <ClCompile Include="..\src\modflow\solvers.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

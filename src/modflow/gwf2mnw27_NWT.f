@@ -15,7 +15,7 @@
         DOUBLE PRECISION, POINTER :: SMALL
         CHARACTER(LEN=20), DIMENSION(:),   POINTER     ::WELLID
         CHARACTER(LEN=16), DIMENSION(:),   POINTER     ::MNWAUX
-        INTEGER,    DIMENSION(:,:),     POINTER ::LIMQ
+        INTEGER,    DIMENSION(:,:),     POINTER :: LIMQ
         DOUBLE PRECISION,  DIMENSION(:,:), POINTER     ::MNW2
         DOUBLE PRECISION,  DIMENSION(:,:), POINTER     ::MNWNOD
         DOUBLE PRECISION,  DIMENSION(:,:), POINTER     ::MNWINT
@@ -29,7 +29,7 @@
 C     ******************************************************************
 C     ALLOCATE ARRAY STORAGE FOR MNW2 PACKAGE.
 !rgn------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-!rgn------NEW VERSION NUMBER 1.1.1, 7/28/2016
+!rgn------NEW VERSION NUMBER 1.1.3, 8/01/2017
 C     ******************************************************************
 C
 C     SPECIFICATIONS:
@@ -167,8 +167,7 @@ C     ------------------------------------------------------------------
       USE DE4MODULE,ONLY:HCLOSEDE4
       USE PCGMODULE,ONLY:HCLOSEPCG
       USE GWFNWTMODULE,ONLY:Tol
-      USE GMGMODULE,ONLY:HCLOSEGMG
-      USE GLOBAL,ONLY:IUNIT
+!      USE GMGMODULE,ONLY:HCLOSEGMG
 !      USE PCGN,ONLY:HCLOSEPCGN
 C     ------------------------------------------------------------------
       INTEGER Qlimit,QCUT,firstnode,lastnode,
@@ -215,8 +214,7 @@ C-------SET SMALL DEPENDING ON CLOSURE CRITERIA OF THE SOLVER
       IF ( Iupcg.NE.0 ) SMALL = HCLOSEPCG
 !      IF ( Iulmg.NE.0 ) SMALL = 0.0D0  !LMG SETS HCLOSE TO ZERO
       IF ( Iunwt.NE.0 ) SMALL = TOL
-      Iugmg = IUNIT(42)
-      IF ( Iugmg.NE.0 ) SMALL = HCLOSEGMG
+!      IF ( Iugmg.NE.0 ) SMALL = HCLOSEGMG
 !      IF ( Iupcgn.NE.0 ) SMALL = HCLOSEPCGN
 c     initialize
       WELLID=' '
@@ -2143,7 +2141,7 @@ c             Q has been constrained
 c             only perform % checks after second iteration (lets soln get going)
               if(kiter.gt.2) then
 c              % check divides by lastQ, so avoid this if it is zero
-               if(lastQ.ne.0.0) then
+               if(abs(lastQ)>small) then
 c               this is the percentage change, below which the Q will be locked in
 c               for the time step
                 temppct=0.01d0
@@ -3419,7 +3417,22 @@ c   initialize specified conductance; will be summed for multiple intervals
 c   length of interval is ztop-zbotm     
                 ztop=MNWINT(1,iint)
                 zbotm=MNWINT(2,iint)
+c  LFK (11/30/15)
+                  MNWNOD(20,INODE)=ZTOP
+                  MNWNOD(21,INODE)=ZBOTM
 c   check boundaries/saturated thickness
+c LFK (6/3/15) check if bottom of well screen is above the water table.
+c              If yes, well node is dry; set PPFLAG=0; deactivate node.
+                if(zbotm.ge.top) then
+                  COND=0.0
+                  alpha=0.0
+                  MNWNOD(14,INODE)=0.0D0
+                  MNW2(19,iw)=0.0
+C
+                  if (mnwprnt.gt.0) WRITE(iout,83) wellid(iw),inode
+   83 FORMAT(1X,' Open interval above water table; MNW2 node deactivated
+     1 in Well ',A20,' Node ',I4)                  
+                end if
                 if(ztop.ge.top) ztop=top
                 if(zbotm.le.bot) zbotm=bot
                 if(ztop.gt.zbotm) then
@@ -3472,23 +3485,59 @@ c   calculate alpha for partial penetration effect if PPFLAG is on
                 if(alpha.gt.0.99.and.alpha.lt.1.0) then
                   if (MNWPRNT.gt.1.and.kiter.eq.1) then
                   nd=INODE-firstnode+1
-                  write(iout,*) 'Penetration fraction > 0.99 for node ',
-     & nd,' of well ',wellid(iw)
-                  write(iout,*) 'Value reset to 1.0 for this well'
+                  write (iout,81) nd,wellid(iw)
+   81 Format (1X,'Penetration fraction > 0.99 for node',I5,
+     &' of well ',A20,' Value reset to 1.0 for this well')
                   end if
                   alpha=1.0
                 end if
               else
-                alpha=1.0
+                if (cond.gt.0.0) alpha=1.0
+c-LFK 8/24/15   alpha=1.0
               endif
             end if  
 c
+c LFK (8/19/15) turn off PP calculation if convertible layer and hwell drops below (zbotm+0.01)
+c             set COND=0.0
+c              go to 567
+            IF(LAYHDT(IZ).GT.0.AND.PPFLAG.GT.0.and.KITER.GT.2) then
+              hwell=mnw2(17,iw)
+              alpha2=hwell-zbotm
+             IF(alpha2.lt.0.01) then
+               MNW2(19,IW)=0.0
+               PPFLAG=0
+               COND=0.0
+               if(mnwprnt.gt.0) WRITE(iout,85) wellid(iw),iw
+   85 FORMAT(1X,' hwell <(zbotm+0.01) in convertible layer; PPFLAG reset
+     1 to 0; WELLNAME = ',A20,'  iw = ',I4)
+               alpha=0.0
+c       write (iout,*) ' alpha reset to 0.0 '
+             else
+               alpha3=1.0
+               if(totlength.gt.0D0) then
+                 alpha3=alpha2/totlength
+               end if
+               if (alpha3.lt.0.10) then
+                 MNW2(19,IW)=0.0
+                 PPFLAG=0
+C                 COND=0.0
+                 if(mnwprnt.gt.0) WRITE(iout,87) wellid(iw)
+   87 FORMAT(1X,' MNW2 node in convertible layer & hwell at <10% open in
+     1terval; PPFLAG reset to 0; WELLNAME = ',A20)
+                 alpha=0.0
+c       write (iout,*) ' alpha reset to 0.0 '                
+              end if
+             END IF
+            END IF
+c567    continue  
 c
 c     Correct conductance calculation for partial penetration effect
 c
 c     prepare variables for partial penetration calculation
 c           only do partial penetration effect if PP>0 and alpha <1.0
             PPFLAG=INT(MNW2(19,iw))
+c lfk 
+c            IF(PPFLAG.GT.0.and.alpha.lt.1.D0.and.alpha.gt.0.0) then
             IF(PPFLAG.GT.0.and.alpha.lt.1.D0) then
 c
 c  use saved partial penetration effect if steady state and past 1st iter
@@ -3562,33 +3611,59 @@ c from top and bottom of screen info, calculate ZPD and ZPL for PPC routine
                 ZPL=top-bottomscreen
 c if ZPD is less that zero, the screen is at the "top", so set ZPD=0
                 if(ZPD.lt.0.D0) ZPD=0.D0
+c LFK (6/5/15) add check on negative ZPL
+                if(ZPL.lt.0.D0) ZPL=0.D0
 c
-C
+C  LFK (5/28/15) don't calculate pp correction if alpha=0 or q-node reset to 0
+C                  or cond reset to 0 or ppflag reset to 0
+                ippc=0
+                if (alpha.eq.0.0) ippc=1
+                if (zpd.eq.0.0.and.zpl.eq.0.0) ippc=ippc+2
+                if (mnwnod(14,inode).eq.0) ippc=ippc+3
+                if (ppflag.eq.0) ippc=ippc+4
+                if (zpd.eq.zpl) ippc=ippc+5
 c calculate dhp (Delta-H due to Penetration) using analytical solution          
 c
+              if(ippc.eq.0) then
+c
                 CALL PPC(dhp,ISOLNFLAG,thck,Kh,Kz,SS,QQ,rw,ZPD,ZPL)
+c
+              else
+                  if(zpd.eq.0.0.and.zpl.eq.0.0) then
+                    PPFLAG=0
+                    MNW2(19,IW)=0
+                    dhp=0.0
+                    MNWNOD(18,INODE)=dhp
+                  end if
+              end if
+              if (PPFLAG.EQ.0) GO TO 5
+c  LFK  end code change
 c          
 c  if analytical solution failed, report no partial penetration and set dhp=0.0
                 if(ISOLNFLAG.EQ.0.AND.ITFLAG.GT.0.and.QQ.ne.0.D0) then
 c  if alpha <= 0.2, shut well off if PPC did not converge
                   if(alpha.lt.0.2) then
                    if (MNWPRNT.gt.1) then
-                    nd=INODE-firstnode+1
-                    write(iout,*) 'Partial penetration solution did not
-     & converge; penetration fraction < 0.2,      resetting CWC= 0.0 for
-     & node '
-     & ,nd,' of well ',wellid(iw)
+                     nd=INODE-firstnode+1
+                     WRITE(iout,88) nd,wellid(iw)
+   88 FORMAT(1X,'Partial penetration solution did not converge; penetrat
+     &ion fraction < 0.2; resetting CWC= 0.0 for node',I5,' of well ',
+     1A20) 
+c
                    end if
                    cond=0.0
                   else
 c  if alpha > 0.2, set PPC effect = 0 if did not converge
                    if (MNWPRNT.gt.1) then
                     nd=INODE-firstnode+1
-                    write(iout,*) 'Partial penetration solution did not
-     & converge; penetration fraction > 0.2,      assume full 
-     & penetration for
-     & node ',nd,' of well ',wellid(iw)
+                    WRITE(iout,89) nd,wellid(iw)
+   89 FORMAT(1X,'Partial penetration solution did not converge; penetrat
+     &ion fraction > 0.2; assume full penetration for node',I5,
+     1' of well ',A20)              
+c 
                    end if
+                   ppflag=0
+                   mnw2(19,iw)=0
                    dhp=0.0 
                   endif
                 end if
@@ -3626,11 +3701,15 @@ c  LFK 6/2012  change check on dhp to include 0.0 to avoid unneeded warnings
                 write(iout,*) '***WARNING***  Partial penetration term
      & (dpp) set to 0.0 due to misalignment of dhp= ',dhp,' and Q=',Qact
 c LFK 6/2012  add well name to output
-     &, ' WELLNAME = ',wellid(iw)
-              end if     
+     &, ' WELLNAME = ',wellid(iw),' iw = ',iw
+c lfk temp debug add 'iw' above
+             end if     
             END IF              
 c           end if PP effect
-          endif
+C--LFK
+    5       continue
+c
+            endif
 c         endif LOSSTYP EQ 4 and NNODES GT 0
 c        Save conductance of each node
           MNWNOD(14,INODE) = cond
@@ -3647,35 +3726,118 @@ c--LFK
           else
             ctext='          '
           end if        
-c only write screen info for cells that have partial penetration
-         if(ipr.eq.1) then
+c only write screen info for cells that have partial penetration (chng 8/24/15:LFK)
+          if(ipr.eq.1) then
            PPFLAG=INT(MNW2(19,iw))
            if(PPFLAG.GT.0.and.alpha.lt.1.0D0) then
+c LFK 12/1/15       Determine correct top and bottom of open interval for printing:
+              if (nod.gt.1) then
+                if (topscreen.gt.top) then
+                  topscreen=top
+                end if
+                if (mnwnod(21,inode).lt.bot) then
+                  bottomscreen=bot
+                end if
+              end if
+c
             if(LOSSTYPE.eq.2) then
-             write(iout,'(A15,I3,1P7G12.5,1PG12.4,10A)') 
+             write(iout,'(A15,I3,1PG12.4,1x,7G12.4,10A)') 
 c-LFK             write(iout,'(A15,I3,1P7G12.5,1PG12.4,9A)') 
      & WELLID(iw),nod,cond,
      & top,bot,topscreen,bottomscreen,alpha,Skin,B,ctext
             else 
-             write(iout,'(A15,I3,1P6G12.5,12A,12A,10A)') 
+c 
+            write(iout,'(A15,I3,1PG12.4,1x,5G12.4,12A,12A,10A)') 
 c-LFK             write(iout,'(A15,I3,1P6G12.5,12A,12A,9A)') 
      & WELLID(iw),nod,cond,
      & top,bot,topscreen,bottomscreen,alpha,'     N/A    ',
      & '     N/A    ',ctext
             end if
            else
-c for no partial penetration, just repeat top and bot of layer
-            if(LOSSTYPE.eq.2) then
-             write(iout,'(A15,I3,1P7G12.5,1PG12.4,10A)') 
-c-lfk             write(iout,'(A15,I3,1P7G12.5,1PG12.4,9A)') 
+c for no partial penetration, just repeat top and bot of layer 
+c       unless open interval defined by elevations    (chng 8/24/15:LFK)
+c
+c LFK 12/1/15       Determine correct top and bottom of open interval for printing:
+              t1=top
+              t2=bot
+              if (nnodes.lt.0.and.mnwnod(20,inode).lt.1e09) then
+                if (mnwnod(20,inode).gt.top) then
+                  t1=top
+                else  
+                  t1=mnwnod(20,inode)
+                end if
+                if (mnwnod(21,inode).lt.bot) then
+                  t2=bot
+                else  
+                  t2=mnwnod(21,inode)
+                end if
+                if (mnwnod(21,inode).gt.top) then
+                  t1=mnwnod(20,inode)
+                  t2=mnwnod(21,inode)
+                end if
+              end if
+c
+           if(LOSSTYPE.eq.2) then
+             if(nnodes.gt.0) then
+              write(iout,'(A15,I3,1PG12.4,1x,7G12.4,10A)') 
+     &        WELLID(iw),nod,cond,
+c-LFK   change following line 8/24/2015
+c     &top,bot,mnwnod(20,inode),mnwnod(21,inode),alpha,Skin,B,ctext      
+     &top,bot,top,bot,alpha,Skin,B,ctext      
+             else
+c
+               write(iout,'(A15,I3,1PG12.4,1x,7G12.4,10A)') 
+     &        WELLID(iw),nod,cond,
+c     & top,bot,mnwnod(20,inode),mnwnod(21,inode),alpha,Skin,B,ctext
+     & top,bot,t1,t2,alpha,Skin,B,ctext
+             end if
+c LFK 11/30/15
+           else if (losstype.eq.4) then
+             if(nnodes.gt.0) then
+              write(iout,'(A15,I3,1PG12.4,1x,7G12.4,10A)') 
+     &        WELLID(iw),nod,cond,
+     &top,bot,top,bot,'     N/A    ','     N/A    ','     N/A    ',ctext    
+             else
+              write(iout,'(A15,I3,1PG12.4,1x,7G12.4,10A)') 
+     &        WELLID(iw),nod,cond,
+c     & top,bot,mnwnod(20,inode),mnwnod(21,inode),'     N/A    ',
+     & top,bot,t1,t2,'     N/A    ',
+     & '     N/A    ','     N/A    ',ctext
+             end if
+c             
+           else
+c LFK 11/24/15
+c             if(nnodes.gt.0) then
+c             if(nnodes.gt.0.or.alpha.eq.1.0) then
+            if(nnodes.gt.0.and.alpha.eq.1.0) then
+             if (ppflag.eq.1) then
+             write(iout,'(A15,I3,1PG12.4,1x,6G12.4,12A,12A,10A)') 
      & WELLID(iw),nod,cond,
-     & top,bot,top,bot,alpha,Skin,B,ctext
-            else
-             write(iout,'(A15,I3,1P6G12.5,12A,12A,10A)') 
-c-lfk             write(iout,'(A15,I3,1P6G12.5,12A,12A,9A)') 
-     & WELLID(iw),nod,cond,
-     & top,bot,top,bot,alpha,'     N/A    ',
+     &top,bot,top,bot,alpha,'     N/A    ',
      & '     N/A    ',ctext
+             else
+             write(iout,'(A15,I3,1PG12.4,1x,6G12.4,12A,12A,10A)') 
+     & WELLID(iw),nod,cond,
+c     &top,bot,top,bot,alpha,'     N/A    ',
+     &top,bot,top,bot,'     N/A    ','     N/A    ',
+     & '     N/A    ',ctext
+             end if
+            else
+c             
+             if (ppflag.eq.1) then
+             write(iout,'(A15,I3,1PG12.4,1x,6G12.4,12A,12A,10A)') 
+     & WELLID(iw),nod,cond,
+     & top,bot,t1,t2,alpha,'     N/A    ',
+     & '     N/A    ',ctext
+            else 
+             write(iout,'(A15,I3,1PG12.4,1x,6G12.4,12A,12A,10A)') 
+     & WELLID(iw),nod,cond,
+c     & top,bot,mnwnod(20,inode),mnwnod(21,inode),alpha,'     N/A    ',
+c     & top,bot,t1,t2,alpha,'     N/A    ',
+     & top,bot,t1,t2,'     N/A    ','     N/A    ',
+     & '     N/A    ',ctext
+            end if
+             end if
             end if
            end if
          end if
@@ -3736,7 +3898,7 @@ C     ------------------------------------------------------------------
 C
 ! RGN added next 3 lines.
 !      h =  (mnw2(17,iw)-BOTM(C1,R1,L1))
-      h =  (HNEW(C1,R1,lbotm(L1))-BOTM(C1,R1,lbotm(L1)))
+      h =  (HNEW(C1,R1,L1)-BOTM(C1,R1,lbotm(L1)))  !got rid of LBOTM here RGN 1/6/17
       IF( h.LT.0.0 ) h = 0.0
       pi = 3.1415926535897932D0
       verysmall = 1.D-25
@@ -3865,6 +4027,7 @@ c
      1                       IBOUND,LAYCBD,HNEW
       USE GWFBASMODULE, ONLY:HDRY
       USE GWFMNW2MODULE, ONLY:NMNW2,MNWMAX,MNWPRNT,
+C-LFK     1                       NODTOT,MNW2,MNWNOD,SMALL,WELLID
      1                       NODTOT,MNW2,MNWNOD,SMALL,WELLID,LIMQ
       INTEGER firstnode,lastnode,nd,Iuupw  !RGN
       DOUBLE PRECISION qdes,qact,csum,chsum,Qseep,
@@ -3883,7 +4046,7 @@ c       MNWNOD(15,INODE) = 1.0D31
 c
 c QFM  rechecking Q cutoff within FM routine
 c skip this whole thing if 1st or 2nd iter
-      if(kiter.gt.2) then
+      if(kiter.gt.2) then  !RGN 11/14/2016   if(kiter.gt.0) then
 c   Retrieve Qfrcmn, Qfrcmx, Qdes
          if(mnw2(6,iw).ne.0) then
           QCUT = MNW2(8,iw)
@@ -4078,7 +4241,7 @@ c  Second time through loop, now that we have a guess for hwell, check to see if
 c  If so, use the bottom (instead of the low hwell) as the gradient driver in the qact calc
 c  Set the hwell_by_node to the bottom to flag this as a seepage face cell
 c  Sum the seepage (there may be more than one node's worth
-              if( kSeep.gt.1 .and. hwell.lt.Bottom )then
+              if( kSeep.gt.1 .and. hwell.lt.Bottom )then        !RGN 11/14/2016 hwell is not set for kiter<2
                 MNWNOD(4,INODE) = (bottom - hnew(ic,ir,il))
      & * MNWNOD(14,INODE)
                 MNWNOD(15,INODE) = bottom
@@ -4323,7 +4486,8 @@ c   Loop over nodes in well
         do INODE=firstnode+1,lastnode
 c   Loop over other nodes in this MNW to set QBH
 c   QBH between successive nodes is Q at previous node - Q at node
-          if(nodepump.eq.inode) then
+C         if(nodepump.eq.inode) then
+          if(nodepump.eq.inode.and.inode.ne.lastnode) then
             MNWNOD(27,INODE)=MNWNOD(27,INODE-1)+MNWNOD(4,INODE-1)-Qnet
           else          
             MNWNOD(27,INODE)=MNWNOD(27,INODE-1)+MNWNOD(4,INODE-1)
@@ -5049,8 +5213,9 @@ c     Save conductance of each node
         b1=bot2
         if (ivert1(inode+1).eq.0) t1=zseg1(inode+1)
         if (ivert2(inode+1).eq.0) b1=zseg2(inode+1)
-       write(iout,'(A15,I3,1P6G12.5,9A)') WELLID(iw),nod+1,cond,
-     & top2,bot2,t1,b1,alpha,'         '
+c-lfk       write(iout,'(A15,I3,1P6G12.5,9A)') WELLID(iw),nod+1,cond,
+       write(iout,'(A15,I3,1PG12.4,1x,5G12.4,9A)') WELLID(iw),nod+1,cond
+     &, top2,bot2,t1,b1,alpha,'         '
       end if
       end if
 c     end loop over "segments"
@@ -5105,7 +5270,8 @@ C        (if there are any more MNW wells)
         write(iout,'(120A)') '                              M O D E L
      &  L A Y E R     W E L L  S C R E E N   Penetration    SKIN     
      &  CALCULATED'
-        write(iout,'(120A)') 'WELLID        Node    CWC*    top_elev   
+c-lfk        write(iout,'(120A)') 'WELLID        Node    CWC*    top_elev   
+        write(iout,'(120A)') 'WELLID        Node    CWC*     top_elev   
      & bott.elev    top_elev   bott.elev    fraction     COEFF.
      &          B'
        end if
@@ -5757,7 +5923,7 @@ C
 C
       DO 1 I=1,NS
        if ( abs(TD)>verysmall ) PP=XLN2*I/TD
-       IF ( pp.LT.verysmall ) THEN   !RGN 9/2/2016 changed 1e-14 to verysmall
+       IF ( pp>verysmall ) THEN   !RGN 9/2/2016 changed 1e-14 to verysmall;  !RGN 11/14/16 changed to pp>verysmall
          Q0=DSQRT(PP)
        ELSE
          Q0=0.0
@@ -6044,8 +6210,6 @@ C
         DEALLOCATE(MNWNOD)
         DEALLOCATE(MNWINT)
         DEALLOCATE(CapTable)
-C
-c-lfk
         DEALLOCATE(LIMQ)
       RETURN
       END
@@ -6068,6 +6232,7 @@ C
         MNWNOD=>GWFMNWDAT(IGRID)%MNWNOD
         MNWINT=>GWFMNWDAT(IGRID)%MNWINT
         CapTable=>GWFMNWDAT(IGRID)%CapTable
+        LIMQ=>GWFMNWDAT(IGRID)%LIMQ
 C
       RETURN
       END
@@ -6090,6 +6255,7 @@ C
         GWFMNWDAT(IGRID)%MNWNOD=>MNWNOD
         GWFMNWDAT(IGRID)%MNWINT=>MNWINT
         GWFMNWDAT(IGRID)%CapTable=>CapTable
+        GWFMNWDAT(IGRID)%LIMQ=>LIMQ
 C
       RETURN
       END

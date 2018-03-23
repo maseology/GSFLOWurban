@@ -18,10 +18,10 @@
 !***********************************************************************
       INTEGER FUNCTION potet_pt()
       USE PRMS_POTET_PT
-      USE PRMS_MODULE, ONLY: Process, Nhru, Save_vars_to_file, Init_vars_from_file
+      USE PRMS_MODULE, ONLY: Process, Nhru, Save_vars_to_file, Init_vars_from_file, Humidity_cbh_flag
       USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, Hru_area, Basin_area_inv, Hru_elev_meters
       USE PRMS_CLIMATEVARS, ONLY: Basin_potet, Potet, Tavgc, Swrad, Tminc, Tmaxc, &
-     &    Tempc_dewpt, Vp_actual, Lwrad_net, Vp_slope
+     &    Tempc_dewpt, Vp_actual, Lwrad_net, Vp_slope, Basin_humidity, Humidity_percent
       USE PRMS_CLIMATE_HRU, ONLY: Humidity_hru
       USE PRMS_SOLTAB, ONLY: Soltab_potsw
       USE PRMS_SET_TIME, ONLY: Nowmonth, Jday
@@ -44,7 +44,13 @@
 !******Compute "EQUIVALENT" EVAPOTRANSPIRATION, EEQ (IN./DAY),
 !...USING PRIESTLY-TAYLOR METHOD. THE VARIBLES ARE CALCULATED
 !...USING FORMULAS GIVEN IN JENSEN, 1990.
+        IF ( Humidity_cbh_flag==0 ) Humidity_hru = Humidity_percent(1, Nowmonth)
+        ! next three lines were in loop, moved out since just setting constants
+        A1 = 17.625
+        B1 = 243.04
+        heat_flux = 0.0 ! Irmak and others (2012) says equal to zero for daily time step ! G
         Basin_potet = 0.0D0
+        Basin_humidity = 0.0D0
         DO j = 1, Active_hrus
           i = Hru_route_order(j)
 
@@ -80,15 +86,15 @@
 
 !   heat flux density to the ground,  MJ / m2 / day
 !          heat_flux = -4.2 * (Tavgc_ante(i)-Tavgc(i)) ! could use solrad_tmax or running avg instead of Tavgc_ante
-          heat_flux = 0.0 ! Irmak and others (2012) says equal to zero for daily time step ! G
+          !heat_flux = 0.0 ! Irmak and others (2012) says equal to zero for daily time step ! G, moved outside loop
 
 ! Dew point temperature (Irmak eqn. 13), degrees C
 ! Humidity_hru is input as percent so divided by 100 to be in units of decimal fraction
 !          Tempc_dewpt(i) = 237.3 / (1.0/(LOG(Humidity_hru(i)/100.0)/17.26939) + (Tavgc(i)/237.3+Tavgc(i)))
 
 ! Dew point temperature (Lawrence(2005) eqn. 8), degrees C
-          A1 = 17.625
-          B1 = 243.04
+          !A1 = 17.625 !moved outside loop
+          !B1 = 243.04 !moved outside loop
           t1 = A1 * Tavgc(i) / (B1 + Tavgc(i))
           num = B1 * (LOG(Humidity_hru(i)/100.0) + t1) 
           den = A1 - LOG(Humidity_hru(i)/100.0) - t1 
@@ -118,11 +124,10 @@
 ! Net long wave rediation (Irmak eqn. 10) MJ / m2/ day
 ! 4.903E-09 = Stefan-Boltzmann constant
           Lwrad_net(i) = 4.903E-09 * (((Tmaxc(i) + 273.16)**4 + (Tminc(i) + 273.16)**4)/2.0 ) &
-      &                  * (0.34 - 0.14*SQRT(Vp_actual(i)) * ((1.35*sw) / stab) - 0.35)
+      &                  * (0.34 - 0.14*(Vp_actual(i)**0.5)) * (((1.35*sw) / stab) - 0.35)
 
 ! Net radiation (Irmak eqn. 8) MJ / m2 / day
 ! 1 Langley = 0.04184 MJ/m2
-!          net_rad = ((Swrad(i)*0.04184 - Lwrad_net(i)) / 0.2389) - heat_flux
           net_rad = Swrad(i)*0.04184 - Lwrad_net(i) - heat_flux
           
 !...COMPUTE EEQ, CM/DAY
@@ -139,12 +144,14 @@
           Potet(i) = Pt_alpha(i, Nowmonth)*eeq
           IF ( Potet(i)<0.0 ) Potet(i) = 0.0
           Basin_potet = Basin_potet + DBLE( Potet(i)*Hru_area(i) )
+          Basin_humidity = Basin_humidity + DBLE( Humidity_hru(i)*Hru_area(i) )
 !          Tavgc_ante(i) = Tavgc(i)
         ENDDO
         Basin_potet = Basin_potet*Basin_area_inv
+        Basin_humidity = Basin_humidity*Basin_area_inv
 
       ELSEIF ( Process(:4)=='decl' ) THEN
-        Version_potet = 'potet_pt.f90 2016-07-20 15:29:00Z'
+        Version_potet = 'potet_pt.f90 2018-01-23 14:02:00Z'
         CALL print_module(Version_potet, 'Potential Evapotranspiration', 90)
         MODNAME = 'potet_pt'
 

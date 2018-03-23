@@ -64,7 +64,7 @@
 !***********************************************************************
       intdecl = 0
 
-      Version_intcp = 'intcp.f90 2016-07-06 17:45:00Z'
+      Version_intcp = 'intcp.f90 2017-09-27 13:53:00Z'
       CALL print_module(Version_intcp, 'Canopy Interception         ', 90)
       MODNAME = 'intcp'
 
@@ -351,7 +351,7 @@
         ENDIF
 
         IF ( changeover>0.0) THEN
-          IF ( Print_debug>-1 ) PRINT *, 'Change over storage added to rain throughfall:', changeover
+          IF ( Print_debug>-1 ) PRINT *, 'Change over storage added to rain throughfall:', changeover, '; HRU:', i
           netrain = netrain + changeover
           Basin_changeover = Basin_changeover + DBLE( changeover*harea )
         ENDIF

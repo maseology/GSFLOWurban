@@ -4,7 +4,7 @@
 !
       SUBROUTINE GWF2NWT1AR(In, Mxiter, Iunitlak, Igrid)
 !
-!------NEWTON SOLVER VERSION NUMBER 1.1.1, 7/28/2016
+!------NEWTON SOLVER VERSION NUMBER 1.1.3, 8/01/2017
 !      RICHARD G. NISWONGER
       USE GLOBAL,     ONLY:NCOL,NROW,NLAY,IBOUND,BOTM,IOUT,LBOTM,HNEW
 !!      USE GLOBAL,     ONLY:NCOL,NROW,NLAY,ITRSS,LAYHDT,LAYHDS,LAYCBD,
@@ -51,7 +51,7 @@
 !1------IDENTIFY PACKAGE AND INITIALIZE.
       WRITE (Iout, 9001) In
  9001 FORMAT (1X, /' NWT1 -- Newton Solver, ',
-     +    'VERSION 1.1.1, 7/28/2016', /, 9X, 'INPUT READ FROM UNIT',
+     +    'VERSION 1.1.3, 8/01/2017', /, 9X, 'INPUT READ FROM UNIT',
      +        I3,/)
       i = 1
       Itreal = 0
@@ -1181,11 +1181,11 @@ C--Update heads.
 !     LOCAL VARIABLES
 !     -----------------------------------------------------------------
       INTEGER ic, ir, il
+      REAL HDRYTOL
 !     -----------------------------------------------------------------
-!      DO ir = 1, Nrow
-!        write(iout,222)( Hnew(ic, ir, 1), ic = 1, Ncol)
-!      end do
-! 222  format(113e20.10)
+C
+C-----SET HNEW TO HDRY IF IPHRY>0
+      HDRYTOL = 2.0e-3
       CALL Head_save()   !From Scott B. 9/7/2013
       DO il = 1, Nlay
         IF ( LAYHDT(il).GT.0 ) THEN
@@ -1193,17 +1193,13 @@ C--Update heads.
             DO ic = 1, Ncol
               IF ( IBOUND(ic,ir,il).GT.0 .AND. IPHDRY.GT.0 ) THEN
                 IF ( Hnew(ic, ir, il)-dble(BOTM(ic,ir,LBOTM(il)))
-     +                                                  .LT.2.0e-3 )
+     +                                                  .LT.HDRYTOL )
      +               Hnew(ic, ir, il) = dble(Hdry)
               END IF
             ENDDO
           ENDDO
         END IF
       ENDDO
-!      do ir=1,nrow
-!      write(iout,101)(Hnew(ic, ir, 1),ic=1,ncol)
-!      end do
-!  101 format(80E20.10) 
       END SUBROUTINE GWF2NWT1BD
 !
 !
@@ -1378,7 +1374,7 @@ C--Update heads.
               END IF
             END IF
           ENDIF
-        END IF
+      END IF
         IF ( ABS(Hchange(jj)).GT.ABS(fhead) ) THEN
           fhead = Hchange(jj)
           ichld = ic
@@ -1438,11 +1434,11 @@ C--Update heads.
       term2 = (-Cvm1-Ccm1-Crm1-Crr-Ccc-Cvv+Hcoff)*H
       term3 = Crr*Hcp1 + Ccc*Hrp1 + Cvv*Hvp1 - Rhss
       GW_func = term1 + term2 + term3
-  !    if(ic==53.and.ir==47.and.il==2)then
+  !    if(ic==130.and.ir==239.and.il==3)then
   !    write(iout,222)ic,ir,il,cvm1*(Hvm1-h),ccm1*(hrm1-h),crm1*(hcm1-h),
-  !   +cvv*(hvp1-h),ccc*(hrp1-h),crr*(hcp1-h),hcoff*h-rhss,gw_func
+  !   +cvv*(hvp1-h),ccc*(hrp1-h),crr*(hcp1-h),hcoff,h,rhss,gw_func
   !    end if
-  !222 format(3i5,8e20.10)
+  !222 format(3i5,10e20.10)
       END FUNCTION GW_func
 !
 !
