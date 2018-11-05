@@ -105,7 +105,7 @@
 		<File RelativePath="..\src\prms\cascade.f90"/>
 		<File RelativePath="..\src\prms\ccsolrad.f90"/>
 		<File RelativePath="..\src\prms\climate_hru.f90"/>
-		<File RelativePath="..\src\prms\climateflow.f90"/>
+		<File RelativePath="..\src\prms\climateflow_gu.f90"/>
 		<File RelativePath="..\src\prms\ddsolrad.f90"/>
 		<File RelativePath="..\src\prms\frost_date.f90"/>
 		<File RelativePath="..\src\prms\gwflow.f90"/>

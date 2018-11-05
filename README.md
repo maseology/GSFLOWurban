@@ -45,10 +45,10 @@ Original model file | Modified model file
 gsflow/gsflow_budget.f90 | gsflow_budget_gu.f90
 gsflow/gsflow_modflow.f | gsflow_modflow_gu.f
 gsflow/gsflow_prms.f90 | gsflow_prms_gu.f90
-gsflow/gsflow_prms2mf.f90 | gsflow_prms2mf_gu.f90
 modflow/de47_NWT.f | de47_NWT_gu.f
 modflow/gwf2bas7_NWT.f | gwf2bas7_NWT_gu.f
 modflow/gwf2uzf1_NWT.f | gwf2uzf1_NWT_gu.f
+prms/climateflow.f90 | climateflow_gu.f90
 prms/gwflow.f90 | gwflow_gu.f90
 prms/map_results.f90 | map_results_gu.f90
 prms/soilzone.f90 | soilzone_gu.f90
@@ -56,6 +56,16 @@ prms/srunoff.f90 | srunoff_gu.f90
 prms/water_balance.f90 | water_balance_gu.f90
 _none_ | srunoff_urban_gu.f90
 
+#### Changes to parameter input ranges
+
+A number of parameter ranges have been changed to satisfy specific needs. Setting parameter values beyond the default ranges set in Markstrom et.al. (2008) should be made with caution.
+
+* *Imperv_stor_max* range increased to [0.0 to 5.0] inches
+* *Soil_rechr_max* range increased to [0.00001 to 10.0] inches
+* *Ssr2gw_rate* range increased from [0.0 to 1.0] to [0.0 to 10,000.0]; however, *Ssr2gw_rate* > 1.0 will only be accepted if *Ssr2gw_exp* is set to zero (=0.0). This modification allows the potential gravity drainage from the soil zone to be set explicitly as a rate and not as a function of gravity reservoir storage (see equation 59 in Markstrom et.al., 2008).
+* *Sat_threshold* lower limit of range changed to [0.0 to 999.0] inches
+* *Cecn_coef* range increased to [0.01 to 60.0] calories per degree Celsius above 0
+* *ncol* range increased to [1 to 500,000]
 
 ### License
 

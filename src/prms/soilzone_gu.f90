@@ -600,7 +600,7 @@
 
       ALLOCATE ( Ssr2gw_rate(Nhru) )
       IF ( declparam(MODNAME, 'ssr2gw_rate', 'nssr', 'real', &
-     &     '0.1', '0.0', '1.0', &                                                                                           ! mm
+     &     '0.1', '0.0', '10000.0', &                                                                                       ! mm
      &     'Coefficient to route water from gravity reservoir to GWR', &
      &     'Linear coefficient in equation used to route water from'// &
      &     ' the gravity reservoir to the GWR for each HRU', &
@@ -717,6 +717,8 @@
           Pref_flow_den(i) = 0.0
           Pref_flow_max(i) = 0.0
           CYCLE
+        ELSE                                                                                                                ! mm
+          IF ( Sat_threshold(i)<0.00001 ) Sat_threshold(i) = 0.00001                                                        ! mm  
         ENDIF
 
         IF ( Hru_type(i)==3 ) THEN ! swale
@@ -738,6 +740,16 @@
             Soil_rechr_max(i) = Soil_moist_max(i)
           ENDIF
         ENDIF
+        
+        IF ((Ssr2gw_rate(i)>1.0).AND.(Ssr2gw_exp(i)/=0.0)) THEN                                                             ! mm begin
+          IF ( Parameter_check_flag>0 ) THEN
+            PRINT 9006, i, Ssr2gw_rate(i), Ssr2gw_exp(i)
+            ierr = 1
+          ELSE
+            IF ( Print_debug>-1 ) PRINT 9016, i, Ssr2gw_rate(i), Ssr2gw_exp(i)
+            Ssr2gw_exp(i) = 0.0
+          ENDIF
+        ENDIF                                                                                                               ! mm end
 
         ! hru_type = 1 or 3
         ierr1 = 0
@@ -929,6 +941,7 @@
  9003 FORMAT (/, 'ERROR, HRU:', I7, ' soil_rechr_init > soil_rechr_max', 2F10.4)
  9004 FORMAT (/, 'ERROR, HRU:', I7, ' soil_moist_init > soil_moist_max', 2F10.4)
  9005 FORMAT (/, 'ERROR, HRU:', I7, ' soil_rechr > soil_moist based on init and max values', 2F10.4)
+ 9006 FORMAT (/, 'ERROR, HRU:', I7, ' ssr2gw_rate > 1.0 and ssr2gw_exp is not set to zero', 2F10.4)                         ! mm
  9012 FORMAT ('WARNING, HRU:', I7, ' soil_rechr_max > soil_moist_max,', 2F10.4, /, 9X, &
      &        'soil_rechr_max set to soil_moist_max')
  9013 FORMAT ('WARNING, HRU:', I7, ' soil_rechr_init > soil_rechr_max,', 2F10.4, /, 9X, &
@@ -937,7 +950,8 @@
      &        'soil_moist set to soil_moist_max')
  9015 FORMAT ('WARNING, HRU:', I7, ' soil_rechr_init > soil_moist_init,', 2F10.4, /, 9X, &
      &        'soil_rechr set to soil_moist based on init and max values')
-
+ 9016 FORMAT ('WARNING, HRU:', I7, ' ssr2gw_rate > 1.0 and ssr2gw_exp is NE to zero,', 2F10.4, /, 9X, &                     ! mm
+     &        'ssr2gw_exp has been set to zero')
       END FUNCTION szinit
 
 !***********************************************************************
@@ -1606,7 +1620,11 @@
       REAL, INTENT(INOUT) :: Slow_stor, Ssr_to_gw
 !***********************************************************************
 !******compute flow to groundwater
-      Ssr_to_gw = Ssr2gw_rate*(Slow_stor**Ssr2gw_exp)
+      IF ( Ssr2gw_exp<=0.0 ) THEN                                                                                           ! mm begin
+        Ssr_to_gw = Ssr2gw_rate
+      ELSE
+        Ssr_to_gw = Ssr2gw_rate*(Slow_stor**Ssr2gw_exp)
+      ENDIF                                                                                                                 ! mm end
       IF ( Ssr_to_gw<0.0 ) THEN
         Ssr_to_gw = 0.0
       ELSEIF ( Ssr_to_gw>Slow_stor ) THEN

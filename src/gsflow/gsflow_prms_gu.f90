@@ -159,7 +159,7 @@
      &           'decimal fraction')/=0 ) CALL read_error(1, 'gvr_cell_pct')
           ENDIF
         ENDIF
-        IF ( MapOutON_OFF>0 .OR. Model==0 .OR. Model==99 ) THEN
+        IF ( MapOutON_OFF>0 .AND. ( Model==0 .OR. Model==99) ) THEN                                                         ! mm bug fix
           ALLOCATE ( Gvr_cell_id(Nhrucell) )
           IF ( declparam(MODNAME, 'gvr_cell_id', 'nhrucell', 'integer', &
      &         '-1', '-1', '999999999', &
@@ -191,7 +191,7 @@
           ENDIF
           IF ( getparam(MODNAME, 'mxsziter', 1, 'integer', Mxsziter)/=0 ) CALL read_error(2, 'mxsziter')
         ENDIF
-        IF ( MapOutON_OFF>0 .OR. Model==0 ) THEN
+        IF ( MapOutON_OFF>0 .AND. Model==0 ) THEN                                                                           ! mm bug fux
           IF ( getparam(MODNAME, 'gvr_cell_id', Nhrucell, 'integer', &
      &         Gvr_cell_id)/=0 ) CALL read_error(2, 'gvr_cell_id')
           IF ( Gvr_cell_id(1)==-1 ) THEN

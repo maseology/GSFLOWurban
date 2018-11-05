@@ -415,7 +415,7 @@
 
       ALLOCATE ( Cecn_coef(Nhru,12) )
       IF ( declparam(MODNAME, 'cecn_coef', 'nhru,nmonths', 'real', &
-     &     '5.0', '0.02', '20.0', &
+     &     '5.0', '0.02', '60.0', &                                                                                         ! mm
      &     'Monthly convection condensation energy coefficient for each HRU', &
      &     'Monthly (January to December) convection condensation energy coefficient for each HRU', &
      &     'calories per degree Celsius above 0')/=0 ) CALL read_error(1, 'cecn_coef')

@@ -137,7 +137,7 @@
      &     'years')/=0 ) CALL read_error(1, 'prms_warmup')
 
       IF ( declparam(MODNAME, 'ncol', 'one', 'integer', &
-     &     '1', '1', '50000', &
+     &     '1', '1', '500000', &                                                                                            ! mm
      &     'Number of columns for each row of the mapped results', &
      &     'Number of columns for each row of the mapped results', &
      &     'none')/=0 ) CALL read_error(1, 'ncol')

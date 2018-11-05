@@ -698,7 +698,7 @@
 
       ALLOCATE ( Sat_threshold(Nhru) )
       IF ( declparam(Soilzone_module, 'sat_threshold', 'nhru', 'real', &
-     &     '999.0', '0.00001', '999.0', &
+     &     '999.0', '0.0', '999.0', &                                                                                       ! mm
      &     'Soil saturation threshold, above field-capacity threshold', &
      &     'Water holding capacity of the gravity and preferential-'// &
      &     'flow reservoirs; difference between field capacity and'// &
@@ -716,7 +716,7 @@
 
       ALLOCATE ( Soil_rechr_max(Nhru) )
       IF ( declparam(Soilzone_module, 'soil_rechr_max', 'nhru', 'real', &
-     &     '1.5', '0.00001', '5.0', &
+     &     '1.5', '0.00001', '10.0', &                                                                                      ! mm
      &     'Maximum storage for soil recharge zone', &
      &     'Maximum storage for soil recharge zone (upper portion of'// &
      &     ' capillary reservoir where losses occur as both'// &
@@ -732,7 +732,7 @@
 
       ALLOCATE ( Imperv_stor_max(Nhru) )
       IF ( declparam(Srunoff_module, 'imperv_stor_max', 'nhru', 'real', &
-     &     '0.05', '0.0', '0.5', &
+     &     '0.05', '0.0', '5.0', &                                                                                          ! mm
      &     'HRU maximum impervious area retention storage', &
      &     'Maximum impervious area retention storage for each HRU', &
      &     'inches')/=0 ) CALL read_error(1, 'imperv_stor_max')
