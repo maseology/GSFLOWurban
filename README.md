@@ -1,4 +1,4 @@
-# GSFLOW Urban
+# GSFLOWurban
 
 An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/).  
 
@@ -12,7 +12,7 @@ Built upon (and backward compatible to) GSFLOW version 1.2.2.
    3. Pervious areas
  * Conceptual _"Sewershed"_ independent of overland and groundwater pathways used to simulate urban storm water drainage
  * An infiltration storage feature used to investigate sustainable development strategies
- * A variety of logical pathways needed to routed water among various storage reservoirs
+ * A variety of logical pathways needed to route water among various storage reservoirs
  * Groundwater interaction with:  
    1. Infiltration storage reservoirs in order to quantify long-term storage/retention potential
    2. Sewershed elements to simulation groundwater infiltration (i.e., storm sewer I&I)
@@ -77,7 +77,7 @@ Mason Marchidon P.Eng M.A.Sc, Hydrologist for the [Oak Ridges Moraine Groundwate
 
 Copyright © 2017
 
-### References and Acknowledgments
+### References and Acknowledgements
 
 Markstrom, S.L., Niswonger, R.G., Regan, R.S., Prudic, D.E., and Barlow, P.M., 2008, [GSFLOW-Coupled Ground-water and Surface-water FLOW model based on the integration of the Precipitation-Runoff Modeling System (PRMS) and the Modular Ground-Water Flow Model (MODFLOW-2005): U.S. Geological Survey Techniques and Methods 6-D1, 240 p.](https://pubs.usgs.gov/tm/tm6d1/)
 
