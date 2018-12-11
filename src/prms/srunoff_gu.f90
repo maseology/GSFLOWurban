@@ -38,7 +38,7 @@
       REAL, SAVE, ALLOCATABLE :: Smidx_coef(:), Smidx_exp(:)
       REAL, SAVE, ALLOCATABLE :: Carea_min(:), Carea_max(:)
       REAL, SAVE, ALLOCATABLE :: Scs_cn(:), Sri_to_perv(:)                                                                  ! mm
-      REAL, SAVE, ALLOCATABLE :: Ga_ksat(:), Ga_sm(:)                                                                       ! mm 
+      REAL, SAVE, ALLOCATABLE :: Ga_ksat(:), Ga_sypsi(:)                                                                    ! mm 
 !   Declared Parameters for Depression Storage
       REAL, SAVE, ALLOCATABLE :: Op_flow_thres(:), Sro_to_dprst(:)
       REAL, SAVE, ALLOCATABLE :: Va_clos_exp(:), Va_open_exp(:)
@@ -98,7 +98,7 @@
 !***********************************************************************
       srunoffdecl = 0
 
-      Version_srunoff = 'srunoff.f90 2017-11-08 12:16:00Z'
+      Version_srunoff = 'srunoff_gu.f90 2018-12-08 12:16:00Z'                                                               ! mm
       IF ( Sroff_flag==1 ) THEN
         MODNAME = 'srunoff_smidx'
       ELSEIF ( Sroff_flag==2 ) THEN                                                                                         ! mm
@@ -110,7 +110,7 @@
       ELSEIF ( Sroff_flag==5 ) THEN
         MODNAME = 'srunoff_grnampt'                                                                                         ! mm
       ENDIF
-      Version_srunoff = MODNAME//'.f90 '//Version_srunoff(13:80)
+      Version_srunoff = MODNAME//'.f90 '//Version_srunoff(16:80)                                                            ! mm
       CALL print_module(Version_srunoff, 'Surface Runoff              ', 90)
 
       IF ( declvar(MODNAME, 'basin_imperv_evap', 'one', 1, 'double', &
@@ -329,19 +329,19 @@
       ENDIF
       
       IF ( Sroff_flag==5 .OR. Model==99 ) THEN
-        ALLOCATE ( Ga_ksat(Nhru), Ga_sm(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
+        ALLOCATE ( Ga_ksat(Nhru), Ga_sypsi(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
         IF ( declparam(MODNAME, 'ga_ksat', 'nhru', 'real', &
      &       '0.1', '0.0', '100.0', &
      &       'Soil saturated conductivity', &
-     &       'Saturated hydraulic conductivity of soil surface for each HRU', &
+     &       'Saturated hydraulic conductivity of the soil zone for each HRU', &
      &       'inches/day')/=0 ) CALL read_error(1, 'ga_ksat')  
         
-        IF ( declparam(MODNAME, 'ga_sm', 'nhru', 'real', &
-     &       '0.8', '0.0', '10.0', &
-     &       'Green-Ampt SM factor', &
-     &       'Computed as the soil suction head times the moisture deficit'// &
-     &       ' of soil zone ahead of the wetting front at field capacity for each HRU', &
-     &       'inches')/=0 ) CALL read_error(1, 'ga_sm')  
+        IF ( declparam(MODNAME, 'ga_sypsi', 'nhru', 'real', &
+     &       '1.7', '0.0', '5.0', &
+     &       'Green-Ampt Sy*Psi factor', &
+     &       'Computed as the abs value of matric potential ahead of the wetting front'// &
+     &       ' times the specific yield of soil zone for each HRU', &
+     &       'inches')/=0 ) CALL read_error(1, 'ga_sypsi')  
       ENDIF                                                                                                                 ! mm end
 
       ALLOCATE ( Carea_max(Nhru) )
@@ -537,7 +537,7 @@
       ELSEIF ( Sroff_flag==5 ) THEN                                                                                         ! mm
 ! Green-Ampt parameters
         IF ( getparam(MODNAME, 'ga_ksat', Nhru, 'real', Ga_ksat)/=0 ) CALL read_error(2, 'ga_ksat')        
-        IF ( getparam(MODNAME, 'ga_sm', Nhru, 'real', Ga_sm)/=0 ) CALL read_error(2, 'ga_sm')     
+        IF ( getparam(MODNAME, 'ga_sypsi', Nhru, 'real', Ga_sypsi)/=0 ) CALL read_error(2, 'ga_sypsi')     
         Ga_f = 0.0
         Ga_ponded = 0
       ENDIF
@@ -993,7 +993,7 @@
       REAL, INTENT(IN) :: Pptp, Ptc
       REAL, INTENT(INOUT) :: Infil
 ! Functions                                                                                                                 ! mm
-      REAL compute_cn_s, compute_grnampt                                                                                    !
+      REAL, EXTERNAL :: compute_cn_s, compute_grnampt                                                                       !
 ! Local Variables
       REAL :: smidx, srpp, ca_fraction, cn_s, mfrac                                                                         ! mm
       INTEGER :: cn_amc                                                                                                     ! mm
@@ -1535,16 +1535,17 @@
 !     Updates cumulative infilltration (F), returns excess rainfall (R)    
 !***********************************************************************
       REAL FUNCTION compute_grnampt(Pptp)
-      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sm, Ga_f, Ga_ponded
+      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sypsi, Ga_f, Ga_ponded
+      USE PRMS_FLOWVARS, ONLY: Soil_moist_frac
       USE PRMS_BASIN, ONLY: CLOSEZERO
       IMPLICIT NONE
       INTRINSIC LOG
 ! Arguments
       REAL, INTENT(IN) :: Pptp
 ! Functions
-      REAL fpsm
+      REAL, EXTERNAL :: fpsm
 ! Local Variables
-      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1
+      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1, sm
       INTEGER :: i
 !***********************************************************************
       
@@ -1575,6 +1576,7 @@
       tp = 0.0
       ts = 0.0
       tcum = 0.0
+      sm = (1.0-Soil_moist_frac(Ihru))*Ga_sypsi(Ihru) ! implies no moisture redistribution within the daily timestep
       DO i = 1, ga_nint
         pn = Pptp*ga_pprop(i)/ga_intvl(i)  ! precip intensity occurring during the current sub-interval (inches/day)
         pt = pt + Pptp*ga_pprop(i)
@@ -1587,25 +1589,25 @@
           
         IF ( Ga_ponded(Ihru).NE.0 ) THEN
           ! check whether ponding will occur in sub-timestep (Cu)
-          s1 = pt - rl - Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru))
+          s1 = pt - rl - Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru))
           IF (s1 > 0.0) Ga_ponded(Ihru) = 1
         ENDIF
         
         IF (Ga_ponded(Ihru) == 1) THEN ! hru is ponded
           IF ( tp == 0.0 ) THEN
-            s1 = (Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
+            s1 = (Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
             IF ( s1 < 0.0 ) THEN ! tp: ponding time
               tp = tcum
             ELSE
               tp = s1 + tcum
             ENDIF         
             s1 = pl + (tp - tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
-            ts = Ga_sm(Ihru) / Ga_ksat(Ihru) * ((s1 - rl) / Ga_sm(Ihru) - LOG(1.0 + (s1 - rl) / Ga_sm(Ihru))) ! ts: time scale shift
+            ts = sm / Ga_ksat(Ihru) * ((s1 - rl) / sm - LOG(1.0 + (s1 - rl) / sm)) ! ts: time scale shift
           ENDIF
           tt = ga_intvl(i) + tcum - tp + ts
-          s1 = Ga_ksat(Ihru) * tt / Ga_sm(Ihru) ! KT/SM
+          s1 = Ga_ksat(Ihru) * tt / sm ! KT/SM
           s1 = fpsm(s1) ! F/SM
-          ft = s1 * Ga_sm(Ihru) ! F(t)
+          ft = s1 * sm ! F(t)
           s1 = pt - ft
           IF ( s1 <= rl ) THEN
             rt = rl
@@ -1639,7 +1641,7 @@
       END FUNCTION compute_grnampt
       
 !***********************************************************************
-!     Function used to solve for F/SM in Chu (1978)
+!     Explicit function used to solve for F/SM in Chu (1978), Figure 1
 !***********************************************************************
       REAL FUNCTION fpsm(ktttsm)
       INTRINSIC LOG10, MIN, MAX

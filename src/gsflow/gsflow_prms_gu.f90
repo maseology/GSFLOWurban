@@ -92,7 +92,7 @@
         ENDIF
         Process_flag = 1
 
-        PRMS_versn = 'gsflow_prms.f90 2017-11-14 15:20:00Z'
+        PRMS_versn = 'gsflow_prms_gu.f90 2018-12-08 15:20:00Z'
 
         IF ( check_dims()/=0 ) STOP
 
@@ -538,6 +538,12 @@
      &        '    An integration of the Precipitation-Runoff Modeling System (PRMS)', /, &
      &        '    and the Modular Groundwater Model (MODFLOW-NWT and MODFLOW-2005)', /)
 
+      PRINT 4
+      WRITE ( Logunt, 4 )
+    4 FORMAT (/, 19X, 'Urban hydrology edition (GSFLOWurban)', /, &
+     &        26X, 'Version 0.4 12/07/2018', /, &
+     &        26X, 'copyright M.Marchildon', /)
+      
       ! debug print flag:
       ! -1=quiet - reduced screen output
       ! 0=none; 1=water balances; 2=basin;

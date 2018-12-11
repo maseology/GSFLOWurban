@@ -334,8 +334,10 @@ ASALocalRun/
 /bak
 /test
 /doc/extra
-/GSFUc/x64
-/GSFUf/x64
+/doc/latex
+/doc/old
+/GSFUc
+/GSFUf
 *.rar
 todo.txt
 bugs.txt
