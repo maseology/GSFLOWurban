@@ -53,7 +53,7 @@
 ! Local Variables
       CHARACTER(LEN=80), SAVE :: Version_water_balance
 !***********************************************************************
-      Version_water_balance = 'water_balance.f90 2016-06-03 12:31:00Z'
+      Version_water_balance = 'water_balance_gu.f90 2016-06-03 12:31:00Z'
       CALL print_module(Version_water_balance, 'Water Balance Computations  ', 90 )
       MODNAME_WB = 'water_balance'
 
@@ -167,7 +167,7 @@
 !***********************************************************************
       SUBROUTINE water_balance_run()
       USE PRMS_WATER_BALANCE
-      USE PRMS_MODULE, ONLY: Cascade_flag, Cascadegw_flag, Dprst_flag, Sroff_flag                                           ! mm
+      USE PRMS_MODULE, ONLY: Cascade_flag, Cascadegw_flag, Dprst_flag, Surban_flag                                          ! mm
       USE PRMS_BASIN, ONLY: Hru_route_order, Active_hrus, Hru_frac_perv, Hru_area_dble, Hru_perv, &
      &    Hru_type, Basin_area_inv, NEARZERO, Dprst_area_max, Hru_percent_imperv, Hru_frac_dprst, Cov_type, DNEARZERO
       USE PRMS_CLIMATEVARS, ONLY: Hru_ppt, Basin_ppt, Hru_rain, Hru_snow, Newsnow, Pptmix
@@ -286,7 +286,7 @@
         IF ( Cascade_flag==1 ) robal = robal + SNGL( Upslope_hortonian(i) - Hru_hortn_cascflow(i) )
         IF ( Dprst_flag==1 ) robal = robal - Dprst_evap_hru(i) + &
      &                               SNGL( Dprst_stor_ante(i) - Dprst_stor_hru(i) - Dprst_seep_hru(i) ) !- Dprst_in(i) - Dprst_insroff_hru(i)
-        IF ( Sroff_flag==4 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                            ! mm
+        IF ( Surban_flag/=0 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                           ! mm
         basin_robal = basin_robal + DBLE( robal )
         IF ( ABS(robal)>TOOSMALL ) THEN
           IF ( Dprst_flag==1 ) THEN
@@ -338,7 +338,7 @@
         gvrbal = last_ss - Ssres_stor(i) + Soil_to_ssr(i) - Ssr_to_gw(i) - Swale_actet(i) - Dunnian_flow(i) &
      &           - Ssres_flow(i) + Pfr_dunnian_flow(i) + Pref_flow_infil(i)
         IF ( Cascade_flag==1 ) gvrbal = gvrbal - Hru_sz_cascadeflow(i)
-        IF ( Sroff_flag==4 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                              ! mm
+        IF ( Surban_flag/=0 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                             ! mm
         test = ABS( gvrbal )
         IF ( test>TOOSMALL ) THEN
           WRITE ( BALUNT, * ) 'Bad GVR balance, HRU:', i, ' hru_type:', Hru_type(i)
@@ -355,7 +355,7 @@
         IF ( Cascade_flag==1 ) waterout = waterout + Hru_sz_cascadeflow(i)
         soil_in = soil_in + DBLE(Infil(i)*perv_frac)*harea
         soilbal = waterin - waterout + last_ss - Ssres_stor(i) + (last_sm-Soil_moist(i))*perv_frac
-        IF ( Sroff_flag==4 ) soilbal = soilbal + Urban_to_ssr(i)                                                            ! mm
+        IF ( Surban_flag/=0 ) soilbal = soilbal + Urban_to_ssr(i)                                                           ! mm
         basin_bal = basin_bal + DBLE(soilbal)*harea
         test = ABS( soilbal )
         IF ( test>TOOSMALL ) THEN
@@ -389,7 +389,7 @@
           hru_out = hru_out + Hru_gw_cascadeflow(i)
           hru_in = hru_in + Gw_upslope(i)/DBLE(harea)
         ENDIF
-        IF ( Sroff_flag==4 ) hru_out = hru_out + Urban_to_stdrn(i)                                                          ! mm
+        IF ( Surban_flag/=0 ) hru_out = hru_out + Urban_to_stdrn(i)                                                         ! mm
         wbal = hru_in - hru_out + Hru_storage_ante(i) - Hru_storage(i)
         IF ( Gwminarea_flag==1 ) wbal = wbal + Gwstor_minarea_wb(i)
         IF ( DABS(wbal)>DTOOSMALL ) THEN
@@ -504,7 +504,7 @@
       basin_bal = basin_bal*Basin_area_inv
       bsmbal = Last_soil_moist - Basin_soil_moist + Last_ssstor - Basin_ssstor - Basin_perv_et - Basin_sz2gw + soil_in - &
      &         Basin_ssflow - Basin_soil_to_gw - Basin_dunnian - Basin_swale_et - Basin_lakeinsz
-      IF ( Sroff_flag==4 ) bsmbal = bsmbal + Basin_urban_to_ssr                                                             ! mm
+      IF ( Surban_flag/=0 ) bsmbal = bsmbal + Basin_urban_to_ssr                                                            ! mm
 
       WRITE ( SZUNIT, 9002 ) Nowyear, Nowmonth, Nowday, basin_bal, &
      &        bsmbal, Last_soil_moist, Basin_soil_moist, Last_ssstor, &

@@ -20,7 +20,7 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 ### Input instructions
 ...can be found [here](/doc/input_instructions.pdf).
 
-### Current (Beta) version 0.4
+### Current (Beta) version 0.5
 **Task list:**
 
  - [x] Write & compile code
@@ -95,7 +95,7 @@ A special thanks to the [Lake Simcoe Region Conservation Authority](http://www.l
 
 ### Release info
 
-#### v0.5 January, 2019 *(not yet uploaded)*
+#### v0.5 January, 2019
 * changes to overall srunoff module: now urban hydrology mode can be combined with any srunoff module (i.e., srunoff_carea, srunoff_smidx, srunoff_scscn, srunoff_grnampt, etc.) 
 * changes to SCS-CN module to reflect manual methodology
 * include the PRMS-TOPMODEL option (this module has somehow been forgotten, oops **;)**

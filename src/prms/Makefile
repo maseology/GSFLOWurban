@@ -50,7 +50,7 @@ LIBOBJS = \
         srunoff_gu.o \
 		srunoff_urban_gu.o \
         soilzone_gu.o \
-        gwflow.o \
+        gwflow_gu.o \
         water_balance_gu.o \
         routing.o \
         strmflow.o \
@@ -79,10 +79,10 @@ clean:
 	$(RM) $(PRMSLIB)
 	$(RM) *.o *.mod *~
 
-basin_sum.o: basin_sum.f90 prms_module.mod prms_flowvars.mod prms_intcp_gu.mod prms_snow.mod prms_srunoff_gu.mod prms_gwflow.mod prms_basin.mod prms_climatevars.mod prms_set_time.mod prms_obs.mod prms_muskingum.mod
+basin_sum.o: basin_sum.f90 prms_module.mod prms_flowvars.mod prms_intcp_gu.mod prms_snow.mod prms_srunoff_gu.mod prms_gwflow_gu.mod prms_basin.mod prms_climatevars.mod prms_set_time.mod prms_obs.mod prms_muskingum.mod
 	$(FC) -c $(FFLAGS) basin_sum.f90
 
-subbasin.o: subbasin.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_set_time.mod prms_intcp_gu.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_gwflow.mod prms_snow.mod prms_climatevars.mod 
+subbasin.o: subbasin.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_set_time.mod prms_intcp_gu.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_gwflow_gu.mod prms_snow.mod prms_climatevars.mod 
 	$(FC) -c $(FFLAGS) subbasin.f90
 
 ddsolrad.o: ddsolrad.f90 prms_module.mod prms_basin.mod prms_climatevars.mod prms_soltab.mod prms_set_time.mod prms_obs.mod
@@ -94,16 +94,16 @@ ccsolrad.o: ccsolrad.f90 prms_module.mod prms_basin.mod prms_climatevars.mod prm
 snowcomp.o: snowcomp.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_climatevars.mod prms_set_time.mod prms_intcp_gu.mod
 	$(FC) -c $(FFLAGS) snowcomp.f90
 
-gwflow.o: gwflow.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_intcp_gu.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_cascade_gu.mod prms_set_time.mod
-	$(FC) -c $(FFLAGS) gwflow.f90
+gwflow_gu.o: gwflow_gu.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_intcp_gu.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_cascade_gu.mod prms_set_time.mod
+	$(FC) -c $(FFLAGS) gwflow_gu.f90
 
 utils_prms.o: utils_prms.f90 prms_module.mod prms_basin.mod prms_set_time.mod
 	$(FC) -c $(FFLAGS) utils_prms.f90
 
-prms_summary.o: prms_summary.f90 prms_module.mod prms_climatevars.mod prms_flowvars.mod prms_set_time.mod prms_obs.mod prms_intcp_gu.mod prms_snow.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_gwflow.mod
+prms_summary.o: prms_summary.f90 prms_module.mod prms_climatevars.mod prms_flowvars.mod prms_set_time.mod prms_obs.mod prms_intcp_gu.mod prms_snow.mod prms_srunoff_gu.mod prms_soilzone_gu.mod prms_gwflow_gu.mod
 	$(FC) -c $(FFLAGS) prms_summary.f90
 
-muskingum.o: muskingum.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_set_time.mod prms_obs.mod prms_srunoff_gu.mod prms_gwflow.mod
+muskingum.o: muskingum.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_set_time.mod prms_obs.mod prms_srunoff_gu.mod prms_gwflow_gu.mod
 	$(FC) -c $(FFLAGS) muskingum.f90
 
 intcp_gu.o: intcp_gu.f90 prms_module.mod prms_basin.mod prms_obs.mod prms_climatevars.mod prms_flowvars.mod prms_set_time.mod
@@ -148,10 +148,10 @@ temp_dist2.o: temp_dist2.f90 prms_module.mod prms_basin.mod prms_climatevars.mod
 precip_dist2.o: precip_dist2.f90 prms_module.mod prms_basin.mod prms_climatevars.mod prms_set_time.mod prms_obs.mod
 	$(FC) -c $(FFLAGS) precip_dist2.f90
 
-strmflow.o: strmflow.f90 prms_module.mod prms_basin.mod prms_obs.mod prms_flowvars.mod prms_gwflow.mod prms_srunoff_gu.mod prms_set_time.mod
+strmflow.o: strmflow.f90 prms_module.mod prms_basin.mod prms_obs.mod prms_flowvars.mod prms_gwflow_gu.mod prms_srunoff_gu.mod prms_set_time.mod
 	$(FC) -c $(FFLAGS) strmflow.f90
 
-strmflow_in_out.o: strmflow_in_out.f90 prms_module.mod prms_basin.mod prms_obs.mod prms_flowvars.mod prms_gwflow.mod prms_srunoff_gu.mod prms_set_time.mod
+strmflow_in_out.o: strmflow_in_out.f90 prms_module.mod prms_basin.mod prms_obs.mod prms_flowvars.mod prms_gwflow_gu.mod prms_srunoff_gu.mod prms_set_time.mod
 	$(FC) -c $(FFLAGS) strmflow_in_out.f90
 
 potet_jh.o: potet_jh.f90 prms_module.mod prms_basin.mod prms_climatevars.mod prms_set_time.mod
@@ -202,18 +202,18 @@ climateflow_gu.o: climateflow_gu.f90 prms_module.mod prms_basin.mod prms_set_tim
 soilzone_gu.o: soilzone_gu.f90 prms_module.mod prms_basin.mod prms_flowvars.mod prms_snow.mod prms_climatevars.mod prms_cascade_gu.mod prms_set_time.mod prms_intcp_gu.mod prms_srunoff_gu.mod srunoff_urban_gu.mod
 	$(FC) -c $(FFLAGS) soilzone_gu.f90
 
-routing.o: routing.f90 prms_module.mod prms_basin.mod prms_gwflow.mod prms_flowvars.mod prms_set_time.mod prms_srunoff_gu.mod prms_climatevars.mod
+routing.o: routing.f90 prms_module.mod prms_basin.mod prms_gwflow_gu.mod prms_flowvars.mod prms_set_time.mod prms_srunoff_gu.mod prms_climatevars.mod
 	$(FC) -c $(FFLAGS) routing.f90
 
 prms_time.o: prms_time.f90 prms_module.mod prms_basin.mod
 	$(FC) -c $(FFLAGS) prms_time.f90
 
-water_balance_gu.o: water_balance_gu.f90 prms_module.mod prms_basin.mod prms_srunoff_gu.mod prms_flowvars.mod prms_gwflow.mod prms_climatevars.mod prms_set_time.mod prms_cascade_gu.mod prms_intcp_gu.mod prms_snow.mod prms_soilzone_gu.mod srunoff_urban_gu.mod
+water_balance_gu.o: water_balance_gu.f90 prms_module.mod prms_basin.mod prms_srunoff_gu.mod prms_flowvars.mod prms_gwflow_gu.mod prms_climatevars.mod prms_set_time.mod prms_cascade_gu.mod prms_intcp_gu.mod prms_snow.mod prms_soilzone_gu.mod srunoff_urban_gu.mod
 	$(FC) -c $(FFLAGS) water_balance_gu.f90
 
 prms_climatevars.mod: climateflow_gu.o
 prms_flowvars.mod: climateflow_gu.o
-prms_gwflow.mod: gwflow.o
+prms_gwflow_gu.mod: gwflow_gu.o
 prms_module.mod:
 	$(CD) ../gsflow;make prms_module.mod
 	$(CP) ../gsflow/prms_module.mod .

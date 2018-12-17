@@ -106,8 +106,6 @@
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
         MODNAME = 'srunoff_scscn'
       ELSEIF ( Sroff_flag==4 ) THEN
-        MODNAME = 'srunoff_urban'                                                                                           ! mm
-      ELSEIF ( Sroff_flag==5 ) THEN
         MODNAME = 'srunoff_grnampt'                                                                                         ! mm
       ENDIF
       Version_srunoff = MODNAME//'.f90 '//Version_srunoff(16:80)                                                            ! mm
@@ -328,7 +326,7 @@
      &       'index from 0-100')/=0 ) CALL read_error(1, 'scs_cn')
       ENDIF
       
-      IF ( Sroff_flag==5 .OR. Model==99 ) THEN
+      IF ( Sroff_flag==4 .OR. Model==99 ) THEN
         ALLOCATE ( Ga_ksat(Nhru), Ga_sypsi(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
         IF ( declparam(MODNAME, 'ga_ksat', 'nhru', 'real', &
      &       '0.1', '0.0', '100.0', &
@@ -531,11 +529,8 @@
         Carea_dif = 0.0
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
 ! SCS CN parameters
-        IF ( getparam(MODNAME, 'scs_cn', Nhru, 'real', Scs_cn)/=0 ) CALL read_error(2, 'scs_cn')        
+        IF ( getparam(MODNAME, 'scs_cn', Nhru, 'real', Scs_cn)/=0 ) CALL read_error(2, 'scs_cn')
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         ! mm
-! Urban parameters
-        ! urban parameters to be collected via srunoff_urban module
-      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         ! mm
 ! Green-Ampt parameters
         IF ( getparam(MODNAME, 'ga_ksat', Nhru, 'real', Ga_ksat)/=0 ) CALL read_error(2, 'ga_ksat')        
         IF ( getparam(MODNAME, 'ga_sypsi', Nhru, 'real', Ga_sypsi)/=0 ) CALL read_error(2, 'ga_sypsi')     
@@ -606,7 +601,8 @@
 !***********************************************************************
       INTEGER FUNCTION srunoffrun()
       USE PRMS_SRUNOFF
-      USE PRMS_MODULE, ONLY: Dprst_flag, Cascade_flag, Call_cascade, Print_debug, Sroff_flag, Ndscn, Ninfstor               ! mm
+      USE PRMS_MODULE, ONLY: Dprst_flag, Cascade_flag, Call_cascade, Print_debug, &                                         ! mm
+     &    Surban_flag, Ndscn, Ninfstor                                                                                      ! mm
       USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, &
      &    Hru_perv, Hru_imperv, Hru_percent_imperv, Hru_frac_perv, &
      &    Dprst_area_max, Hru_area, Hru_type, Basin_area_inv, &
@@ -644,7 +640,7 @@
       Basin_imperv_stor = 0.0D0
       Basin_hortonian = 0.0D0
       Basin_contrib_fraction = 0.0D0
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         Basin_dscn_stor = 0.0D0
         Basin_dscn_evap = 0.0D0
         Basin_infstor = 0.0D0
@@ -710,7 +706,7 @@
           Imperv_evap(i) = 0.0
           Hru_impervevap(i) = 0.0
         ENDIF
-        IF ( Sroff_flag==4 ) THEN                                                                                           ! mm begin
+        IF ( Surban_flag/=0 ) THEN                                                                                          ! mm begin
           Hru_dscnstorevap(i) = 0.0
           Urban_to_ssr(i) = 0.0
           Urban_to_stdrn(i) = 0.0
@@ -789,7 +785,7 @@
             Hru_impervstor(i) = Imperv_stor(i)*Imperv_frac
             Basin_imperv_stor = Basin_imperv_stor + DBLE(Imperv_stor(i)*Hruarea_imperv )
           ENDIF
-          IF ( Sroff_flag==4 .AND. Ndscn>0 ) THEN                                                                           ! mm begin
+          IF ( Surban_flag/=0 .AND. Ndscn>0 ) THEN                                                                          ! mm begin
             IF (Dscn_hru_id(i)>0) CALL dscn_evap(i, avail_et)
             avail_et = avail_et - Hru_dscnstorevap(i)
             Basin_dscn_evap = Basin_dscn_evap + Hru_dscnstorevap(i)
@@ -806,7 +802,7 @@
         Basin_sroff = Basin_sroff + DBLE( srunoff*Hruarea )
       ENDDO
       
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         IF ( Ndscn>0 ) THEN
           DO i = 1, Ndscn
             Dscn_stor_evap(i) = 0.0
@@ -830,7 +826,7 @@
       Basin_sroffi = Basin_sroffi*Basin_area_inv
       Basin_hortonian = Basin_hortonian*Basin_area_inv
       Basin_contrib_fraction = Basin_contrib_fraction*Basin_area_inv
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         Basin_dscn_stor = Basin_dscn_stor*Basin_area_inv
         Basin_dscn_evap = Basin_dscn_evap*Basin_area_inv
         Basin_infstor = Basin_infstor*Basin_area_inv
@@ -895,7 +891,7 @@
       USE PRMS_SRUNOFF, ONLY: Sri, Hruarea_imperv, Upslope_hortonian, Ihru
       USE PRMS_SNOW, ONLY: Pptmix_nopack
       USE PRMS_BASIN, ONLY: NEARZERO, DNEARZERO
-      USE PRMS_MODULE, ONLY: Cascade_flag, Sroff_flag                                                                       ! mm
+      USE PRMS_MODULE, ONLY: Cascade_flag, Surban_flag                                                                      ! mm
       IMPLICIT NONE
 ! Arguments
       INTEGER, INTENT(IN) :: Hru_type
@@ -974,7 +970,7 @@
 
 !******Impervious area computations
       IF ( Hruarea_imperv>0.0 ) THEN
-        IF ( Sroff_flag==4 ) THEN                                                                                           ! mm begin
+        IF ( Surban_flag/=0 ) THEN                                                                                          ! mm begin
           CALL urban_coll(Sri, Net_rain, avail_water, Imperv_stor, Imperv_stor_max, &
      &                    Hru_type, Ihru)
         ELSE                                                                                                                ! mm end
@@ -1028,9 +1024,6 @@
         cn_s = Scs_cn_si(Ihru)*(1.0 - t/(t + EXP(Scs_cn_w1(Ihru)-t*Scs_cn_w2(Ihru))))                                       !        
         ca_fraction = Pptp / ( Pptp + cn_s )                                                                                !
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         !
-        ! pervious runoff will be dictated by Carea_max (see line following IF block)                                       !
-        ca_fraction = 1.0                                                                                                   ! mm
-      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         !
         ca_fraction = compute_grnampt(Pptp) / Pptp                                                                          ! mm
       ENDIF   
       IF ( ca_fraction>Carea_max(Ihru) ) ca_fraction = Carea_max(Ihru)

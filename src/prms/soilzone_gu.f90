@@ -965,7 +965,7 @@
       INTEGER FUNCTION szrun()
       USE PRMS_SOILZONE
       USE PRMS_MODULE, ONLY: Dprst_flag, Print_debug, Kkiter, &
-     &    Model, Nlake, Nhrucell, Cascade_flag, Dprst_flag, Sroff_flag, Gw_flag                                             ! mm
+     &    Model, Nlake, Nhrucell, Cascade_flag, Dprst_flag, Surban_flag, Gw_flag                                            ! mm
       USE PRMS_BASIN, ONLY: Hru_type, Hru_perv, Hru_frac_perv, &
      &    Hru_route_order, Active_hrus, Basin_area_inv, Hru_area, &
      &    NEARZERO, Lake_hru_id, Cov_type, Numlake_hrus, Hru_area_dble
@@ -1184,7 +1184,7 @@
         ENDIF
         ! Soil_to_ssr for whole HRU
         Soil_to_ssr(i) = gvr_maxin
-        IF ( Sroff_flag==4 ) gvr_maxin = gvr_maxin + Urban_to_ssr(i)                                                        ! mm
+        IF ( Surban_flag/=0 ) gvr_maxin = gvr_maxin + Urban_to_ssr(i)                                                       ! mm
 
 ! compute slow interflow and ssr_to_gw
         topfr = 0.0
@@ -1383,7 +1383,7 @@
         IF ( Soil_lower_stor_max(i)>0.0 ) Soil_lower_ratio(i) = Soil_lower(i)/Soil_lower_stor_max(i)
 !        Soil_rechr_ratio(i) = Soil_rechr(i)/Soil_rechr_max(i)
         Ssres_in(i) = Soil_to_ssr(i) + Pref_flow_infil(i) + SNGL( gwin )
-        IF ( Sroff_flag==4 )  Ssres_in(i) =  Ssres_in(i) + Urban_to_ssr(i)                                                  ! mm
+        IF ( Surban_flag/=0 )  Ssres_in(i) =  Ssres_in(i) + Urban_to_ssr(i)                                                 ! mm
         IF ( Gw_flag==2 )  Ssres_in(i) =  Ssres_in(i) + Gwr_to_ssr(i)                                                       ! mm
         Basin_ssin = Basin_ssin + DBLE( Ssres_in(i)*harea )
         Basin_ssstor = Basin_ssstor + DBLE( Ssres_stor(i)*harea )
