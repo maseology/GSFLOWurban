@@ -20,7 +20,7 @@
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Dprst_stor_ante(:)
       REAL, SAVE :: Srp, Sri, Perv_frac, Imperv_frac, Hruarea_imperv, Hruarea
       DOUBLE PRECISION, SAVE :: Hruarea_dble
-      REAL, SAVE, ALLOCATABLE :: Ga_f(:)                                                                                    ! mm
+      REAL, SAVE, ALLOCATABLE :: Ga_f(:), Scs_cn_si(:), Scs_cn_w1(:), Scs_cn_w2(:)                                          ! mm
       INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm      
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Basin_sroff_down, Basin_sroff_upslope
@@ -320,7 +320,7 @@
       ENDIF
 
       IF ( Sroff_flag==3 .OR. Model==99 ) THEN                                                                              ! mm begin
-        ALLOCATE ( Scs_cn(Nhru) )
+        ALLOCATE ( Scs_cn(Nhru), Scs_cn_si(Nhru), Scs_cn_w1(Nhru), Scs_cn_w2(Nhru) )
         IF ( declparam(MODNAME, 'scs_cn', 'nhru', 'real', &
      &       '75.0', '0.0', '100.0', &
      &       'Curve Number', &
@@ -471,15 +471,16 @@
       USE PRMS_SRUNOFF
       USE PRMS_MODULE, ONLY: Dprst_flag, Nhru, Nlake, Cascade_flag, Sroff_flag, &
      &    Parameter_check_flag, Print_debug, Init_vars_from_file, Call_cascade
-      USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order
-      USE PRMS_FLOWVARS, ONLY: Soil_moist_max
+      USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, Hru_frac_perv                                                     ! mm
+      USE PRMS_FLOWVARS, ONLY: Soil_moist_max, Sat_threshold                                                                ! mm
       IMPLICIT NONE
 ! Functions
+      INTRINSIC LOG
       INTEGER, EXTERNAL :: getparam
       EXTERNAL read_error
 ! Local Variables
       INTEGER :: i, j, k, num_hrus
-      REAL :: frac
+      REAL :: frac, tfc, ts, siii                                                                                           ! mm
 !***********************************************************************
       srunoffinit = 0
 
@@ -565,6 +566,19 @@
             !  PRINT *, 'This can make smidx parameters insensitive and carea_max very sensitive'
             !ENDIF
           ENDIF
+        ELSEIF ( Sroff_flag==3 ) THEN                                                                                       ! mm begin
+	      ! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
+          !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340
+          IF ( Scs_cn(i)<5.0 ) Scs_cn(i) = 5.0
+          IF ( Scs_cn(i)>98.0 ) Scs_cn(i) = 98.0
+          Scs_cn_si(i) = Scs_cn(i)/(2.281-0.01281*Scs_cn(i))
+          siii = Scs_cn(i)/(0.427+0.00573*Scs_cn(i))
+          Scs_cn_si(i) = 1000.0/Scs_cn_si(i) - 10.0
+          siii = 1000.0/siii - 10.0
+          tfc = Soil_moist_max(i)*Hru_frac_perv(i)
+          ts = tfc + Sat_threshold(i)
+          Scs_cn_w2(i) = (LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) - LOG(ts/(1.0 - 1.0/Scs_cn_si(i))-ts)) / (ts-tfc)
+          Scs_cn_w1(i) = LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) + Scs_cn_w2(i)*tfc                                          ! mm end
         ENDIF
       ENDDO
 !      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
@@ -984,19 +998,21 @@
 !***********************************************************************
       SUBROUTINE perv_comp(Pptp, Ptc, Infil)
       USE PRMS_SRUNOFF, ONLY: Srp, Ihru, Smidx_coef, Smidx_exp, &
-     &    Carea_max, Carea_min, Carea_dif, Contrib_fraction, Scs_cn                                                         ! mm
+     &    Carea_max, Carea_min, Carea_dif, Contrib_fraction, &                                                              ! mm
+     &    Scs_cn_si, Scs_cn_w1, Scs_cn_w2                                                                                   !
       USE PRMS_MODULE, ONLY: Sroff_flag
-!      USE PRMS_BASIN, ONLY: CLOSEZERO
-      USE PRMS_FLOWVARS, ONLY: Soil_moist, Soil_rechr, Soil_rechr_max
+      USE PRMS_BASIN, ONLY: Hru_frac_perv !CLOSEZERO                                                                        ! mm
+      USE PRMS_FLOWVARS, ONLY: Soil_moist, Soil_rechr, Soil_rechr_max, &                                                    ! mm
+     &    Ssres_stor                                                                                                        ! mm
       IMPLICIT NONE
 ! Arguments
       REAL, INTENT(IN) :: Pptp, Ptc
       REAL, INTENT(INOUT) :: Infil
 ! Functions                                                                                                                 ! mm
-      REAL, EXTERNAL :: compute_cn_s, compute_grnampt                                                                       !
+      INTRINSIC EXP                                                                                                         ! mm
+      REAL, EXTERNAL :: compute_grnampt                                                                                     ! mm
 ! Local Variables
-      REAL :: smidx, srpp, ca_fraction, cn_s, mfrac                                                                         ! mm
-      INTEGER :: cn_amc                                                                                                     ! mm
+      REAL :: smidx, srpp, ca_fraction, cn_s, t                                                                             ! mm
 !***********************************************************************
 !******Pervious area computations
       IF ( Sroff_flag==1 ) THEN
@@ -1007,13 +1023,9 @@
         ! antecedent soil_rechr
         ca_fraction = Carea_min(Ihru) + Carea_dif(Ihru)*(Soil_rechr(Ihru)/Soil_rechr_max(Ihru))
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
-        ! compute S-value from antecedent conditions based on the capillary reservoir recharge zone as done in srunoff_carea!
-        cn_amc = 2                                                                                                          !
-        mfrac = Soil_rechr(Ihru) / Soil_rechr_max(Ihru)                                                                     !
-        !  using EPIC model antecedent moisture condition (AMC) formulation (USDA Technical Bulletin 1768)                  !
-        IF ( mfrac<0.5 ) cn_amc = 1                                                                                         !
-        IF ( mfrac>=1.0 ) cn_amc = 3                                                                                        !          
-        cn_s = compute_cn_s(Scs_cn(Ihru), cn_amc)                                                                           !
+        ! compute S-value using EPIC/SWAT model antecedent moisture condition (AMC) formulation (USDA Technical Bulletin 1768)
+        t = Ssres_stor(Ihru) + Soil_moist(Ihru)*Hru_frac_perv(Ihru)                                                         !
+        cn_s = Scs_cn_si(Ihru)*(1.0 - t/(t + EXP(Scs_cn_w1(Ihru)-t*Scs_cn_w2(Ihru))))                                       !        
         ca_fraction = Pptp / ( Pptp + cn_s )                                                                                !
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         !
         ! pervious runoff will be dictated by Carea_max (see line following IF block)                                       !
@@ -1492,39 +1504,6 @@
 
       END SUBROUTINE dprst_comp
 
-!***********************************************************************                                                    ! mm begin
-!     Function used to set the S-value of the SCS CN equation,
-!     corrected on antecedent moisture state.
-!***********************************************************************
-      REAL FUNCTION compute_cn_s(CN, AMC)
-      USE PRMS_BASIN, ONLY: CLOSEZERO
-      IMPLICIT NONE
-! Arguments
-      REAL, INTENT(IN) :: CN
-      INTEGER, INTENT(IN) :: AMC
-! Local Variables
-      REAL :: cn_amc
-!***********************************************************************
-	  ! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
-      !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340.
-      IF ( AMC==1 ) THEN
-        cn_amc = CN / (2.281 - 0.01281 * CN) ! AMCI: dry
-	  ELSEIF ( AMC==3 ) THEN
-        cn_amc = CN / (0.427 + 0.00573 * CN) ! AMCIII: wet
-      ELSE
-        cn_amc = CN
-	  ENDIF
-	  
-      IF ( cn_amc<=0.0 ) THEN
-        compute_cn_s = 1.0 / CLOSEZERO	    
-      ELSEIF ( CN>=100.0 ) THEN 
-        compute_cn_s = 0.0  
-      ELSE
-        compute_cn_s = 1000.0 / cn_amc - 10.0
-      ENDIF
-	  
-      END FUNCTION compute_cn_s                                                                                             ! mm end
-    
 !***********************************************************************                                                    ! mm begin
 !     Function used to determine cummulative infiltraton, based on the
 !     Green-Ampt approximation (Green, W.H., G.A. Ampt, 1911. Studies 

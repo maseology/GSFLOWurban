@@ -50,6 +50,7 @@ gsflow/gsflow_budget.f90 | gsflow_budget_gu.f90
 gsflow/gsflow_modflow.f | gsflow_modflow_gu.f
 gsflow/gsflow_prms.f90 | gsflow_prms_gu.f90
 gsflow/gsflow_prms2mf.f90 | gsflow_prms2mf_gu.f90
+gsflow/gsflow_sum.f90 | gsflow_sum_gu.f90
 modflow/de47_NWT.f | de47_NWT_gu.f
 modflow/gwf2bas7_NWT.f | gwf2bas7_NWT_gu.f
 modflow/gwf2uzf1_NWT.f | gwf2uzf1_NWT_gu.f

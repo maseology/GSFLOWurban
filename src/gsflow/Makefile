@@ -15,7 +15,7 @@ MODOBJS =	\
 		gsflow_prms2mf_gu.o \
 		gsflow_mf2prms.o \
 		gsflow_budget_gu.o \
-		gsflow_sum.o
+		gsflow_sum_gu.o
 
 MFMODULES = global.mod gwfbasmodule.mod pcgmodule.mod sipmodule.mod de4module.mod gwfsfrmodule.mod gwfuzfmodule.mod gwflakmodule.mod
 
@@ -149,8 +149,8 @@ gsflow_modflow_gu.o: gsflow_modflow_gu.f openspec.inc prms_module.mod $(MFMODDEP
 gsflow_prms_gu.o: gsflow_prms_gu.f90 global.mod
 	$(FC) -c $(FFLAGS) gsflow_prms_gu.f90
 
-gsflow_sum.o: gsflow_sum.f90 global.mod gwfbasmodule.mod gwfuzfmodule.mod gwfsfrmodule.mod gsfprms2mf.mod gsfbudget.mod gsfmodflow.mod prms_cascade.mod prms_snow.mod prms_intcp.mod prms_obs.mod prms_module.mod prms_basin.mod prms_flowvars.mod gwflakmodule.mod prms_set_time.mod prms_snow.mod prms_soilzone.mod
-	$(FC) -c $(FFLAGS) gsflow_sum.f90
+gsflow_sum_gu.o: gsflow_sum_gu.f90 global.mod gwfbasmodule.mod gwfuzfmodule.mod gwfsfrmodule.mod gsfprms2mf.mod gsfbudget.mod gsfmodflow.mod prms_cascade.mod prms_snow.mod prms_intcp.mod prms_obs.mod prms_module.mod prms_basin.mod prms_flowvars.mod gwflakmodule.mod prms_set_time.mod prms_snow.mod prms_soilzone.mod
+	$(FC) -c $(FFLAGS) gsflow_sum_gu.f90
 
 gsflow_budget_gu.o: gsflow_budget_gu.f90 gsfprms2mf.mod global.mod gwfbasmodule.mod gwfuzfmodule.mod gwfbcfmodule.mod gwflpfmodule.mod gwfsfrmodule.mod gwfupwmodule.mod prms_basin.mod prms_flowvars.mod prms_set_time.mod prms_srunoff.mod prms_soilzone.mod prms_module.mod gsfmodflow.mod prms_flowvars.mod
 	$(FC) -c $(FFLAGS) gsflow_budget_gu.f90

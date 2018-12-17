@@ -773,14 +773,14 @@
         sz_bal = Cap_S - Last_Cap_S + Grav_S - Last_Grav_S - Sat2Grav_Q - Infil2Soil_Q &
      &           + Interflow2Stream_Q + DunnSroff2Stream_Q + DunnInterflow2Lake_Q &
      &           + SoilDrainage2Unsat_Q + CapET_Q + SwaleEvap_Q
-        IF ( ABS(sz_bal)/Cap_S>ERRCHK ) WRITE (BALUNT, *) 'Possible soil zone water balance problem', sz_bal
+        IF ( ABS(sz_bal)/Cap_S>ERRCHK ) WRITE (BALUNT, *) 'Possible soil zone water balance problem', sz_bal/Cap_S          ! mm
 
         hru_bal = Cap_S - Last_Cap_S + Grav_S - Last_Grav_S  + SnowPweqv_S - Last_SnowPweqv_S &
      &            + Canopy_S - Last_Canopy_S + Imperv_S - Last_Imperv_S + Dprst_S - Last_Dprst_S &
      &            - Sat2Grav_Q - Precip_Q &
      &            + Interflow2Stream_Q + Sroff2Stream_Q + DunnInterflow2Lake_Q + HortSroff2Lake_Q + SoilDrainage2Unsat_Q &
      &            + CapET_Q + ImpervEvap_Q + CanopyEvap_Q + SnowEvap_Q + SwaleEvap_Q + DprstEvap_Q
-        IF ( ABS(hru_bal)/Cap_S>ERRCHK ) WRITE (BALUNT, *) 'Possible HRU water balance problem', hru_bal
+        IF ( ABS(hru_bal)/Cap_S>ERRCHK ) WRITE (BALUNT, *) 'Possible HRU water balance problem', hru_bal/Cap_S              ! mm
         WRITE (BALUNT, 9002) Nowyear, Nowmonth, Nowday, hru_bal, Cap_S, Last_Cap_S, Grav_S, Last_Grav_S, SnowPweqv_S, &
      &                       Last_SnowPweqv_S, Canopy_S, Last_Canopy_S, Imperv_S, Last_Imperv_S, Dprst_S, Last_Dprst_S, &
      &                       Sat2Grav_Q, Precip_Q, &
