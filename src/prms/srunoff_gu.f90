@@ -20,7 +20,7 @@
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Dprst_stor_ante(:)
       REAL, SAVE :: Srp, Sri, Perv_frac, Imperv_frac, Hruarea_imperv, Hruarea
       DOUBLE PRECISION, SAVE :: Hruarea_dble
-      REAL, SAVE, ALLOCATABLE :: Ga_f(:)                                                                                    ! mm
+      REAL, SAVE, ALLOCATABLE :: Ga_f(:), Scs_cn_si(:), Scs_cn_w1(:), Scs_cn_w2(:)                                          ! mm
       INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm      
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Basin_sroff_down, Basin_sroff_upslope
@@ -38,7 +38,7 @@
       REAL, SAVE, ALLOCATABLE :: Smidx_coef(:), Smidx_exp(:)
       REAL, SAVE, ALLOCATABLE :: Carea_min(:), Carea_max(:)
       REAL, SAVE, ALLOCATABLE :: Scs_cn(:), Sri_to_perv(:)                                                                  ! mm
-      REAL, SAVE, ALLOCATABLE :: Ga_ksat(:), Ga_sm(:)                                                                       ! mm 
+      REAL, SAVE, ALLOCATABLE :: Ga_ksat(:), Ga_sypsi(:)                                                                    ! mm 
 !   Declared Parameters for Depression Storage
       REAL, SAVE, ALLOCATABLE :: Op_flow_thres(:), Sro_to_dprst(:)
       REAL, SAVE, ALLOCATABLE :: Va_clos_exp(:), Va_open_exp(:)
@@ -98,7 +98,7 @@
 !***********************************************************************
       srunoffdecl = 0
 
-      Version_srunoff = 'srunoff.f90 2017-11-08 12:16:00Z'
+      Version_srunoff = 'srunoff_gu.f90 2018-12-08 12:16:00Z'                                                               ! mm
       IF ( Sroff_flag==1 ) THEN
         MODNAME = 'srunoff_smidx'
       ELSEIF ( Sroff_flag==2 ) THEN                                                                                         ! mm
@@ -106,11 +106,9 @@
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
         MODNAME = 'srunoff_scscn'
       ELSEIF ( Sroff_flag==4 ) THEN
-        MODNAME = 'srunoff_urban'                                                                                           ! mm
-      ELSEIF ( Sroff_flag==5 ) THEN
         MODNAME = 'srunoff_grnampt'                                                                                         ! mm
       ENDIF
-      Version_srunoff = MODNAME//'.f90 '//Version_srunoff(13:80)
+      Version_srunoff = MODNAME//'.f90 '//Version_srunoff(16:80)                                                            ! mm
       CALL print_module(Version_srunoff, 'Surface Runoff              ', 90)
 
       IF ( declvar(MODNAME, 'basin_imperv_evap', 'one', 1, 'double', &
@@ -320,7 +318,7 @@
       ENDIF
 
       IF ( Sroff_flag==3 .OR. Model==99 ) THEN                                                                              ! mm begin
-        ALLOCATE ( Scs_cn(Nhru) )
+        ALLOCATE ( Scs_cn(Nhru), Scs_cn_si(Nhru), Scs_cn_w1(Nhru), Scs_cn_w2(Nhru) )
         IF ( declparam(MODNAME, 'scs_cn', 'nhru', 'real', &
      &       '75.0', '0.0', '100.0', &
      &       'Curve Number', &
@@ -328,20 +326,20 @@
      &       'index from 0-100')/=0 ) CALL read_error(1, 'scs_cn')
       ENDIF
       
-      IF ( Sroff_flag==5 .OR. Model==99 ) THEN
-        ALLOCATE ( Ga_ksat(Nhru), Ga_sm(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
+      IF ( Sroff_flag==4 .OR. Model==99 ) THEN
+        ALLOCATE ( Ga_ksat(Nhru), Ga_sypsi(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
         IF ( declparam(MODNAME, 'ga_ksat', 'nhru', 'real', &
      &       '0.1', '0.0', '100.0', &
      &       'Soil saturated conductivity', &
-     &       'Saturated hydraulic conductivity of soil surface for each HRU', &
+     &       'Saturated hydraulic conductivity of the soil zone for each HRU', &
      &       'inches/day')/=0 ) CALL read_error(1, 'ga_ksat')  
         
-        IF ( declparam(MODNAME, 'ga_sm', 'nhru', 'real', &
-     &       '0.8', '0.0', '10.0', &
-     &       'Green-Ampt SM factor', &
-     &       'Computed as the soil suction head times the moisture deficit'// &
-     &       ' of soil zone ahead of the wetting front at field capacity for each HRU', &
-     &       'inches')/=0 ) CALL read_error(1, 'ga_sm')  
+        IF ( declparam(MODNAME, 'ga_sypsi', 'nhru', 'real', &
+     &       '1.7', '0.0', '5.0', &
+     &       'Green-Ampt Sy*Psi factor', &
+     &       'Computed as the abs value of matric potential ahead of the wetting front'// &
+     &       ' times the specific yield of soil zone for each HRU', &
+     &       'inches')/=0 ) CALL read_error(1, 'ga_sypsi')  
       ENDIF                                                                                                                 ! mm end
 
       ALLOCATE ( Carea_max(Nhru) )
@@ -471,15 +469,16 @@
       USE PRMS_SRUNOFF
       USE PRMS_MODULE, ONLY: Dprst_flag, Nhru, Nlake, Cascade_flag, Sroff_flag, &
      &    Parameter_check_flag, Print_debug, Init_vars_from_file, Call_cascade
-      USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order
-      USE PRMS_FLOWVARS, ONLY: Soil_moist_max
+      USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, Hru_frac_perv                                                     ! mm
+      USE PRMS_FLOWVARS, ONLY: Soil_moist_max, Sat_threshold                                                                ! mm
       IMPLICIT NONE
 ! Functions
+      INTRINSIC LOG
       INTEGER, EXTERNAL :: getparam
       EXTERNAL read_error
 ! Local Variables
       INTEGER :: i, j, k, num_hrus
-      REAL :: frac
+      REAL :: frac, tfc, ts, siii                                                                                           ! mm
 !***********************************************************************
       srunoffinit = 0
 
@@ -530,14 +529,11 @@
         Carea_dif = 0.0
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
 ! SCS CN parameters
-        IF ( getparam(MODNAME, 'scs_cn', Nhru, 'real', Scs_cn)/=0 ) CALL read_error(2, 'scs_cn')        
+        IF ( getparam(MODNAME, 'scs_cn', Nhru, 'real', Scs_cn)/=0 ) CALL read_error(2, 'scs_cn')
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         ! mm
-! Urban parameters
-        ! urban parameters to be collected via srunoff_urban module
-      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         ! mm
 ! Green-Ampt parameters
         IF ( getparam(MODNAME, 'ga_ksat', Nhru, 'real', Ga_ksat)/=0 ) CALL read_error(2, 'ga_ksat')        
-        IF ( getparam(MODNAME, 'ga_sm', Nhru, 'real', Ga_sm)/=0 ) CALL read_error(2, 'ga_sm')     
+        IF ( getparam(MODNAME, 'ga_sypsi', Nhru, 'real', Ga_sypsi)/=0 ) CALL read_error(2, 'ga_sypsi')     
         Ga_f = 0.0
         Ga_ponded = 0
       ENDIF
@@ -565,6 +561,19 @@
             !  PRINT *, 'This can make smidx parameters insensitive and carea_max very sensitive'
             !ENDIF
           ENDIF
+        ELSEIF ( Sroff_flag==3 ) THEN                                                                                       ! mm begin
+	      ! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
+          !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340
+          IF ( Scs_cn(i)<5.0 ) Scs_cn(i) = 5.0
+          IF ( Scs_cn(i)>98.0 ) Scs_cn(i) = 98.0
+          Scs_cn_si(i) = Scs_cn(i)/(2.281-0.01281*Scs_cn(i))
+          siii = Scs_cn(i)/(0.427+0.00573*Scs_cn(i))
+          Scs_cn_si(i) = 1000.0/Scs_cn_si(i) - 10.0
+          siii = 1000.0/siii - 10.0
+          tfc = Soil_moist_max(i)*Hru_frac_perv(i)
+          ts = tfc + Sat_threshold(i)
+          Scs_cn_w2(i) = (LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) - LOG(ts/(1.0 - 1.0/Scs_cn_si(i))-ts)) / (ts-tfc)
+          Scs_cn_w1(i) = LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) + Scs_cn_w2(i)*tfc                                          ! mm end
         ENDIF
       ENDDO
 !      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
@@ -592,7 +601,8 @@
 !***********************************************************************
       INTEGER FUNCTION srunoffrun()
       USE PRMS_SRUNOFF
-      USE PRMS_MODULE, ONLY: Dprst_flag, Cascade_flag, Call_cascade, Print_debug, Sroff_flag, Ndscn, Ninfstor               ! mm
+      USE PRMS_MODULE, ONLY: Dprst_flag, Cascade_flag, Call_cascade, Print_debug, &                                         ! mm
+     &    Surban_flag, Ndscn, Ninfstor                                                                                      ! mm
       USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, &
      &    Hru_perv, Hru_imperv, Hru_percent_imperv, Hru_frac_perv, &
      &    Dprst_area_max, Hru_area, Hru_type, Basin_area_inv, &
@@ -630,7 +640,7 @@
       Basin_imperv_stor = 0.0D0
       Basin_hortonian = 0.0D0
       Basin_contrib_fraction = 0.0D0
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         Basin_dscn_stor = 0.0D0
         Basin_dscn_evap = 0.0D0
         Basin_infstor = 0.0D0
@@ -696,7 +706,7 @@
           Imperv_evap(i) = 0.0
           Hru_impervevap(i) = 0.0
         ENDIF
-        IF ( Sroff_flag==4 ) THEN                                                                                           ! mm begin
+        IF ( Surban_flag/=0 ) THEN                                                                                          ! mm begin
           Hru_dscnstorevap(i) = 0.0
           Urban_to_ssr(i) = 0.0
           Urban_to_stdrn(i) = 0.0
@@ -775,7 +785,7 @@
             Hru_impervstor(i) = Imperv_stor(i)*Imperv_frac
             Basin_imperv_stor = Basin_imperv_stor + DBLE(Imperv_stor(i)*Hruarea_imperv )
           ENDIF
-          IF ( Sroff_flag==4 .AND. Ndscn>0 ) THEN                                                                           ! mm begin
+          IF ( Surban_flag/=0 .AND. Ndscn>0 ) THEN                                                                          ! mm begin
             IF (Dscn_hru_id(i)>0) CALL dscn_evap(i, avail_et)
             avail_et = avail_et - Hru_dscnstorevap(i)
             Basin_dscn_evap = Basin_dscn_evap + Hru_dscnstorevap(i)
@@ -792,7 +802,7 @@
         Basin_sroff = Basin_sroff + DBLE( srunoff*Hruarea )
       ENDDO
       
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         IF ( Ndscn>0 ) THEN
           DO i = 1, Ndscn
             Dscn_stor_evap(i) = 0.0
@@ -816,7 +826,7 @@
       Basin_sroffi = Basin_sroffi*Basin_area_inv
       Basin_hortonian = Basin_hortonian*Basin_area_inv
       Basin_contrib_fraction = Basin_contrib_fraction*Basin_area_inv
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm begin
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm begin
         Basin_dscn_stor = Basin_dscn_stor*Basin_area_inv
         Basin_dscn_evap = Basin_dscn_evap*Basin_area_inv
         Basin_infstor = Basin_infstor*Basin_area_inv
@@ -881,7 +891,7 @@
       USE PRMS_SRUNOFF, ONLY: Sri, Hruarea_imperv, Upslope_hortonian, Ihru
       USE PRMS_SNOW, ONLY: Pptmix_nopack
       USE PRMS_BASIN, ONLY: NEARZERO, DNEARZERO
-      USE PRMS_MODULE, ONLY: Cascade_flag, Sroff_flag                                                                       ! mm
+      USE PRMS_MODULE, ONLY: Cascade_flag, Surban_flag                                                                      ! mm
       IMPLICIT NONE
 ! Arguments
       INTEGER, INTENT(IN) :: Hru_type
@@ -960,7 +970,7 @@
 
 !******Impervious area computations
       IF ( Hruarea_imperv>0.0 ) THEN
-        IF ( Sroff_flag==4 ) THEN                                                                                           ! mm begin
+        IF ( Surban_flag/=0 ) THEN                                                                                          ! mm begin
           CALL urban_coll(Sri, Net_rain, avail_water, Imperv_stor, Imperv_stor_max, &
      &                    Hru_type, Ihru)
         ELSE                                                                                                                ! mm end
@@ -984,19 +994,21 @@
 !***********************************************************************
       SUBROUTINE perv_comp(Pptp, Ptc, Infil)
       USE PRMS_SRUNOFF, ONLY: Srp, Ihru, Smidx_coef, Smidx_exp, &
-     &    Carea_max, Carea_min, Carea_dif, Contrib_fraction, Scs_cn                                                         ! mm
+     &    Carea_max, Carea_min, Carea_dif, Contrib_fraction, &                                                              ! mm
+     &    Scs_cn_si, Scs_cn_w1, Scs_cn_w2                                                                                   !
       USE PRMS_MODULE, ONLY: Sroff_flag
-!      USE PRMS_BASIN, ONLY: CLOSEZERO
-      USE PRMS_FLOWVARS, ONLY: Soil_moist, Soil_rechr, Soil_rechr_max
+      USE PRMS_BASIN, ONLY: Hru_frac_perv !CLOSEZERO                                                                        ! mm
+      USE PRMS_FLOWVARS, ONLY: Soil_moist, Soil_rechr, Soil_rechr_max, &                                                    ! mm
+     &    Ssres_stor                                                                                                        ! mm
       IMPLICIT NONE
 ! Arguments
       REAL, INTENT(IN) :: Pptp, Ptc
       REAL, INTENT(INOUT) :: Infil
 ! Functions                                                                                                                 ! mm
-      REAL compute_cn_s, compute_grnampt                                                                                    !
+      INTRINSIC EXP                                                                                                         ! mm
+      REAL, EXTERNAL :: compute_grnampt                                                                                     ! mm
 ! Local Variables
-      REAL :: smidx, srpp, ca_fraction, cn_s, mfrac                                                                         ! mm
-      INTEGER :: cn_amc                                                                                                     ! mm
+      REAL :: smidx, srpp, ca_fraction, cn_s, t                                                                             ! mm
 !***********************************************************************
 !******Pervious area computations
       IF ( Sroff_flag==1 ) THEN
@@ -1007,18 +1019,11 @@
         ! antecedent soil_rechr
         ca_fraction = Carea_min(Ihru) + Carea_dif(Ihru)*(Soil_rechr(Ihru)/Soil_rechr_max(Ihru))
       ELSEIF ( Sroff_flag==3 ) THEN                                                                                         ! mm
-        ! compute S-value from antecedent conditions based on the capillary reservoir recharge zone as done in srunoff_carea!
-        cn_amc = 2                                                                                                          !
-        mfrac = Soil_rechr(Ihru) / Soil_rechr_max(Ihru)                                                                     !
-        !  using EPIC model antecedent moisture condition (AMC) formulation (USDA Technical Bulletin 1768)                  !
-        IF ( mfrac<0.5 ) cn_amc = 1                                                                                         !
-        IF ( mfrac>=1.0 ) cn_amc = 3                                                                                        !          
-        cn_s = compute_cn_s(Scs_cn(Ihru), cn_amc)                                                                           !
+        ! compute S-value using EPIC/SWAT model antecedent moisture condition (AMC) formulation (USDA Technical Bulletin 1768)
+        t = Ssres_stor(Ihru) + Soil_moist(Ihru)*Hru_frac_perv(Ihru)                                                         !
+        cn_s = Scs_cn_si(Ihru)*(1.0 - t/(t + EXP(Scs_cn_w1(Ihru)-t*Scs_cn_w2(Ihru))))                                       !        
         ca_fraction = Pptp / ( Pptp + cn_s )                                                                                !
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         !
-        ! pervious runoff will be dictated by Carea_max (see line following IF block)                                       !
-        ca_fraction = 1.0                                                                                                   ! mm
-      ELSEIF ( Sroff_flag==5 ) THEN                                                                                         !
         ca_fraction = compute_grnampt(Pptp) / Pptp                                                                          ! mm
       ENDIF   
       IF ( ca_fraction>Carea_max(Ihru) ) ca_fraction = Carea_max(Ihru)
@@ -1493,39 +1498,6 @@
       END SUBROUTINE dprst_comp
 
 !***********************************************************************                                                    ! mm begin
-!     Function used to set the S-value of the SCS CN equation,
-!     corrected on antecedent moisture state.
-!***********************************************************************
-      REAL FUNCTION compute_cn_s(CN, AMC)
-      USE PRMS_BASIN, ONLY: CLOSEZERO
-      IMPLICIT NONE
-! Arguments
-      REAL, INTENT(IN) :: CN
-      INTEGER, INTENT(IN) :: AMC
-! Local Variables
-      REAL :: cn_amc
-!***********************************************************************
-	  ! after: Hawkins, R.H., A.T. Hjelmfelt, A.W. Zevenbergen, 1985. Runoff Probability, Storm Depth, and Curve Numbers.
-      !        Journal of the Irrigation and Drainage Division, ASCE 111(4). pp.330-340.
-      IF ( AMC==1 ) THEN
-        cn_amc = CN / (2.281 - 0.01281 * CN) ! AMCI: dry
-	  ELSEIF ( AMC==3 ) THEN
-        cn_amc = CN / (0.427 + 0.00573 * CN) ! AMCIII: wet
-      ELSE
-        cn_amc = CN
-	  ENDIF
-	  
-      IF ( cn_amc<=0.0 ) THEN
-        compute_cn_s = 1.0 / CLOSEZERO	    
-      ELSEIF ( CN>=100.0 ) THEN 
-        compute_cn_s = 0.0  
-      ELSE
-        compute_cn_s = 1000.0 / cn_amc - 10.0
-      ENDIF
-	  
-      END FUNCTION compute_cn_s                                                                                             ! mm end
-    
-!***********************************************************************                                                    ! mm begin
 !     Function used to determine cummulative infiltraton, based on the
 !     Green-Ampt approximation (Green, W.H., G.A. Ampt, 1911. Studies 
 !               of Soil Physics, 1: The Flow of Air and Water Through 
@@ -1535,16 +1507,17 @@
 !     Updates cumulative infilltration (F), returns excess rainfall (R)    
 !***********************************************************************
       REAL FUNCTION compute_grnampt(Pptp)
-      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sm, Ga_f, Ga_ponded
+      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sypsi, Ga_f, Ga_ponded
+      USE PRMS_FLOWVARS, ONLY: Soil_moist_frac
       USE PRMS_BASIN, ONLY: CLOSEZERO
       IMPLICIT NONE
       INTRINSIC LOG
 ! Arguments
       REAL, INTENT(IN) :: Pptp
 ! Functions
-      REAL fpsm
+      REAL, EXTERNAL :: fpsm
 ! Local Variables
-      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1
+      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1, sm
       INTEGER :: i
 !***********************************************************************
       
@@ -1575,6 +1548,7 @@
       tp = 0.0
       ts = 0.0
       tcum = 0.0
+      sm = (1.0-Soil_moist_frac(Ihru))*Ga_sypsi(Ihru) ! implies no moisture redistribution within the daily timestep
       DO i = 1, ga_nint
         pn = Pptp*ga_pprop(i)/ga_intvl(i)  ! precip intensity occurring during the current sub-interval (inches/day)
         pt = pt + Pptp*ga_pprop(i)
@@ -1587,25 +1561,25 @@
           
         IF ( Ga_ponded(Ihru).NE.0 ) THEN
           ! check whether ponding will occur in sub-timestep (Cu)
-          s1 = pt - rl - Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru))
+          s1 = pt - rl - Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru))
           IF (s1 > 0.0) Ga_ponded(Ihru) = 1
         ENDIF
         
         IF (Ga_ponded(Ihru) == 1) THEN ! hru is ponded
           IF ( tp == 0.0 ) THEN
-            s1 = (Ga_ksat(Ihru) * Ga_sm(Ihru) / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
+            s1 = (Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
             IF ( s1 < 0.0 ) THEN ! tp: ponding time
               tp = tcum
             ELSE
               tp = s1 + tcum
             ENDIF         
             s1 = pl + (tp - tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
-            ts = Ga_sm(Ihru) / Ga_ksat(Ihru) * ((s1 - rl) / Ga_sm(Ihru) - LOG(1.0 + (s1 - rl) / Ga_sm(Ihru))) ! ts: time scale shift
+            ts = sm / Ga_ksat(Ihru) * ((s1 - rl) / sm - LOG(1.0 + (s1 - rl) / sm)) ! ts: time scale shift
           ENDIF
           tt = ga_intvl(i) + tcum - tp + ts
-          s1 = Ga_ksat(Ihru) * tt / Ga_sm(Ihru) ! KT/SM
+          s1 = Ga_ksat(Ihru) * tt / sm ! KT/SM
           s1 = fpsm(s1) ! F/SM
-          ft = s1 * Ga_sm(Ihru) ! F(t)
+          ft = s1 * sm ! F(t)
           s1 = pt - ft
           IF ( s1 <= rl ) THEN
             rt = rl
@@ -1639,7 +1613,7 @@
       END FUNCTION compute_grnampt
       
 !***********************************************************************
-!     Function used to solve for F/SM in Chu (1978)
+!     Explicit function used to solve for F/SM in Chu (1978), Figure 1
 !***********************************************************************
       REAL FUNCTION fpsm(ktttsm)
       INTRINSIC LOG10, MIN, MAX

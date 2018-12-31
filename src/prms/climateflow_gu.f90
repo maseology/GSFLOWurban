@@ -64,11 +64,11 @@
       DOUBLE PRECISION, SAVE :: Basin_actet, Basin_lakeevap
       DOUBLE PRECISION, SAVE :: Basin_swale_et, Basin_perv_et
       DOUBLE PRECISION, SAVE :: Basin_soil_moist, Basin_ssstor
-      REAL, SAVE, ALLOCATABLE :: Hru_actet(:), Soil_moist(:)
+      REAL, SAVE, ALLOCATABLE :: Hru_actet(:), Soil_moist(:), Soil_moist_frac(:)                                            ! mm
       REAL, SAVE, ALLOCATABLE :: Soil_to_gw(:), Slow_flow(:)
       REAL, SAVE, ALLOCATABLE :: Soil_to_ssr(:), Ssres_in(:)
       REAL, SAVE, ALLOCATABLE :: Ssr_to_gw(:), Slow_stor(:)
-      REAL, SAVE, ALLOCATABLE :: Ssres_stor(:), Ssres_flow(:), Soil_rechr(:)
+      REAL, SAVE, ALLOCATABLE :: Ssres_stor(:), Ssres_flow(:), Soil_rechr(:)      
       ! srunoff
       REAL, SAVE, ALLOCATABLE :: Sroff(:), Imperv_stor(:), Infil(:)
       ! Surface-Depression Storage
@@ -129,7 +129,7 @@
 !***********************************************************************
       climateflow_decl = 0
 
-      Version_climateflow = 'climateflow.f90 2018-01-23 14:03:00Z'
+      Version_climateflow = 'climateflow_gu.f90 2018-12-08 14:03:00Z'
       CALL print_module(Version_climateflow, 'Common States and Fluxes    ', 90)
       MODNAME = 'climateflow'
 
@@ -333,6 +333,11 @@
      &     ' capillary reservoir that is available for both'// &
      &     ' evaporation and transpiration', &
      &     'inches', Soil_rechr)/=0 ) CALL read_error(3, 'soil_rechr')
+      
+      ALLOCATE ( Soil_moist_frac(Nhru) )                                                                                    ! mm begin
+      IF ( declvar(MODNAME, 'soil_moist_frac', 'nhru', Nhru, 'real', &
+     &     'Fraction of soil zone storage of the maximum storage for each HRU', &
+     &     'decimal fraction', Soil_moist_frac)/=0 ) CALL read_error(3, 'soil_moist_frac')                                  ! mm end
 
       ALLOCATE ( Ssr_to_gw(Nssr) )
       IF ( declvar(Soilzone_module, 'ssr_to_gw', 'nssr', Nssr, 'real', &
@@ -1145,13 +1150,14 @@
         WRITE ( Restart_outunit ) Soil_to_gw
         WRITE ( Restart_outunit ) Slow_flow
         WRITE ( Restart_outunit ) Soil_moist
+        WRITE ( Restart_outunit ) Soil_moist_frac                                                                           ! mm        
         WRITE ( Restart_outunit ) Soil_to_ssr
         WRITE ( Restart_outunit ) Ssres_in
         WRITE ( Restart_outunit ) Ssr_to_gw
         WRITE ( Restart_outunit ) Slow_stor
         WRITE ( Restart_outunit ) Ssres_stor
         WRITE ( Restart_outunit ) Ssres_flow
-        WRITE ( Restart_outunit ) Soil_rechr
+        WRITE ( Restart_outunit ) Soil_rechr     
         WRITE ( Restart_outunit ) Sroff
         WRITE ( Restart_outunit ) Imperv_stor
         WRITE ( Restart_outunit ) Infil
@@ -1205,13 +1211,14 @@
         READ ( Restart_inunit ) Soil_to_gw
         READ ( Restart_inunit ) Slow_flow
         READ ( Restart_inunit ) Soil_moist
+        READ ( Restart_inunit ) Soil_moist_frac                                                                             ! mm        
         READ ( Restart_inunit ) Soil_to_ssr
         READ ( Restart_inunit ) Ssres_in
         READ ( Restart_inunit ) Ssr_to_gw
         READ ( Restart_inunit ) Slow_stor
         READ ( Restart_inunit ) Ssres_stor
         READ ( Restart_inunit ) Ssres_flow
-        READ ( Restart_inunit ) Soil_rechr
+        READ ( Restart_inunit ) Soil_rechr        
         READ ( Restart_inunit ) Sroff
         READ ( Restart_inunit ) Imperv_stor
         READ ( Restart_inunit ) Infil

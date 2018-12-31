@@ -1,8 +1,6 @@
-# GSFLOW Urban
+# GSFLOWurban
 
-An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/).  
-
-Built upon (and backward compatible to) GSFLOW version 1.2.2.
+An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/). Built upon (and backward compatible to) GSFLOW version 1.2.2. [See *Draft* Manual](/doc/GSFU_man_Dec18.pdf).
 
 **Model capabilities:**
 
@@ -12,17 +10,17 @@ Built upon (and backward compatible to) GSFLOW version 1.2.2.
    3. Pervious areas
  * Conceptual _"Sewershed"_ independent of overland and groundwater pathways used to simulate urban storm water drainage
  * An infiltration storage feature used to investigate sustainable development strategies
- * A variety of logical pathways needed to routed water among various storage reservoirs
+ * A variety of logical pathways needed to route water among various storage reservoirs
  * Groundwater interaction with:  
    1. Infiltration storage reservoirs in order to quantify long-term storage/retention potential
    2. Sewershed elements to simulation groundwater infiltration (i.e., storm sewer I&I)
 
-![GSFLOW urban flow pathways](/doc/pathways_170515.png)
+![GSFLOW urban flow pathways](/doc/pathways_181211.png)
 
 ### Input instructions
 ...can be found [here](/doc/input_instructions.pdf).
 
-### Current (Beta) version 0.3
+### Current (Beta) version 0.5
 **Task list:**
 
  - [x] Write & compile code
@@ -31,25 +29,36 @@ Built upon (and backward compatible to) GSFLOW version 1.2.2.
  - [ ] Complete model manual
  - [ ] Rigorous code (crash) testing
  - [ ] Sample problem
+
+### Additional modules added to GSFLOW
+
+* SCS-CN (1972) runoff generation mechanism as used in the SWAT model (Neitsch et.al., 2011) 
+* Variable (sub-daily) time step Green and Ampt (1911) solution of Chu (1978)
+* TOPMODEL (Beven et.al., 1995) as an alternative to PRMS-only's cascading groundwater module
  
 ### Code modifications
 
-The following table lists the model files that have been altered/modified as part of the GSFLOW urban extension. Code changes to existing USGS model files have been commented by the contributors' initials.  
+The following table lists the model files that have been altered/modified as part of the GSFLOWurban extension. Code changes to existing USGS model files have been commented by the contributors' initials.  
 
 Not all changes were implemented for the creation of GSFLOW urban, but modifications to the code were added to improve the legibility of simulation warning messages, such as increasing the digits when writing to the console
 
-Users are free to recompile their own version of GSFLOW urban by simply replacing their GSFLOW project files with the files listed below. The contributors have assured that all changes made to the GSFLOW code will not affect the original code implementation, meaning the GSFLOW urban will remain backward compatible such that any previously-built GSFLOW model will continue to run using GSFLOW urban.
+Users are free to recompile their own version of GSFLOWurban by simply replacing their GSFLOW project files with the files listed below. The contributors have assured that all changes made to the GSFLOW code will not affect the original code implementation, meaning the GSFLOWurban will remain backward compatible such that any previously-built GSFLOW model will continue to run using GSFLOWurban.
 
 Original model file | Modified model file
 ------------------- | -------------------
 gsflow/gsflow_budget.f90 | gsflow_budget_gu.f90
 gsflow/gsflow_modflow.f | gsflow_modflow_gu.f
 gsflow/gsflow_prms.f90 | gsflow_prms_gu.f90
+gsflow/gsflow_prms2mf.f90 | gsflow_prms2mf_gu.f90
+gsflow/gsflow_sum.f90 | gsflow_sum_gu.f90
 modflow/de47_NWT.f | de47_NWT_gu.f
 modflow/gwf2bas7_NWT.f | gwf2bas7_NWT_gu.f
 modflow/gwf2uzf1_NWT.f | gwf2uzf1_NWT_gu.f
+modflow/NWT1_solver.f | NWT1_solver_gu.f
+prms/cascade.f90 | cascade_gu.f90
 prms/climateflow.f90 | climateflow_gu.f90
 prms/gwflow.f90 | gwflow_gu.f90
+prms/intcp.f90 | intcp_gu.f90
 prms/map_results.f90 | map_results_gu.f90
 prms/soilzone.f90 | soilzone_gu.f90
 prms/srunoff.f90 | srunoff_gu.f90
@@ -77,8 +86,24 @@ Mason Marchidon P.Eng M.A.Sc, Hydrologist for the [Oak Ridges Moraine Groundwate
 
 Copyright © 2017
 
-### References and Acknowledgments
+### References and Acknowledgements
 
 Markstrom, S.L., Niswonger, R.G., Regan, R.S., Prudic, D.E., and Barlow, P.M., 2008, [GSFLOW-Coupled Ground-water and Surface-water FLOW model based on the integration of the Precipitation-Runoff Modeling System (PRMS) and the Modular Ground-Water Flow Model (MODFLOW-2005): U.S. Geological Survey Techniques and Methods 6-D1, 240 p.](https://pubs.usgs.gov/tm/tm6d1/)
 
 A special thanks to the [Lake Simcoe Region Conservation Authority](http://www.lsrca.on.ca/) for their start-up funding contribution.
+
+
+### Release info
+
+#### v0.5 January, 2019
+* changes to overall srunoff module: now urban hydrology mode can be combined with any srunoff module (i.e., srunoff_carea, srunoff_smidx, srunoff_scscn, srunoff_grnampt, etc.) 
+* changes to SCS-CN module to reflect manual methodology
+* include the PRMS-TOPMODEL option (this module has somehow been forgotten, oops **;)**
+
+#### v0.4 December, 2018
+
+* released draft manual
+* changes to Green and Ampt module to allows the soil moisture accounting dictate infiltrability
+* configured makefiles for compiling in Linux
+* bug fixes and input range adjustments
+* (began including release info)

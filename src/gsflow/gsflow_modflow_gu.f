@@ -96,7 +96,7 @@ C2------WRITE BANNER TO SCREEN AND DEFINE CONSTANTS.
       WRITE ( Logunt, 8 )
     8 FORMAT (14X, 'PROCESSES: GWF and OBS', /, 14X,
      &        'PACKAGES:  BAS, BCF, CHD, DE4, FHB, GAG, GHB,',
-     &        /, 25X, 'HFB, HUF, LAK LPF, MNW1, MNW2, NWT,',
+     &        /, 25X, 'HFB, HUF, LAK, LPF, MNW1, MNW2, NWT,',                                                               ! mm
      &        /, 25X, 'PCG, SFR, SIP, UPW, UZF, WEL, SWI, SWT, LMT', /)
 
       IF ( Model==0 ) THEN
@@ -1635,10 +1635,10 @@ C
           WRITE (Logunt, *)'***WARNING***'
           WRITE (Logunt, 11)
           WRITE (Logunt, *)
-          WRITE (*, *)
-          WRITE (*, *)'***WARNING***'
-          WRITE (*, 11)
-          WRITE (*, *)
+          !WRITE (*, *)                                                                                                     ! mm
+          !WRITE (*, *)'***WARNING***'
+          !WRITE (*, 11)
+          !WRITE (*, *)
         END IF
       END IF
    10  FORMAT('Non-zero values were specified for precipitation,',/,
@@ -1749,9 +1749,10 @@ C
           Ncells = Ncells + 1
           IF ( Print_debug>-1 ) THEN
             IF ( pctdiff<-0.0000001D0 ) THEN
-              PRINT *, 'WARNING, portion of cell in gvr_cell_pct',
-     &                 ' mapping < 1.0 ', cell_pct(i), pctdiff
-              PRINT *, 'Will lose some water in MF cell:', i
+              PRINT '(A,A,F7.5,2X,F7.5,/,A,I,/)',                                                                           ! mm begin
+     &                 'WARNING, portion of cell in gvr_cell_pct',
+     &                 ' mapping < 1.0 ', cell_pct(i), pctdiff,
+     &                 'Will lose some water in MF cell:', i                                                                ! mm end
             ENDIF
             IF ( pctdiff>1.00001D0 ) THEN
               PRINT *, 'WARNING, portion of cell in gvr_cell_pct',

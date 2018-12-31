@@ -18,7 +18,7 @@
       INTEGER, SAVE :: Ndscn, Ninfstor                                                                                      ! mm
       INTEGER, SAVE :: Starttime(6), Endtime(6)
       INTEGER, SAVE :: Start_year, Start_month, Start_day, End_year, End_month, End_day
-      INTEGER, SAVE :: Transp_flag, Sroff_flag, Solrad_flag, Et_flag, Gw_flag                                               ! mm
+      INTEGER, SAVE :: Transp_flag, Sroff_flag, Surban_flag, Solrad_flag, Et_flag, Gw_flag                                  ! mm
       INTEGER, SAVE :: Climate_temp_flag, Climate_precip_flag, Climate_potet_flag, Climate_transp_flag
       INTEGER, SAVE :: Lake_route_flag, Nratetbl, Strmflow_flag, Stream_order_flag
       INTEGER, SAVE :: Temp_flag, Precip_flag, Climate_hru_flag, Climate_swrad_flag
@@ -92,7 +92,7 @@
         ENDIF
         Process_flag = 1
 
-        PRMS_versn = 'gsflow_prms.f90 2017-11-14 15:20:00Z'
+        PRMS_versn = 'gsflow_prms_gu.f90 2018-12-08 15:20:00Z'
 
         IF ( check_dims()/=0 ) STOP
 
@@ -375,7 +375,7 @@
       call_modules = srunoff()
       IF ( call_modules/=0 ) CALL module_error(Srunoff_module, Arg, call_modules)
 
-      IF ( Sroff_flag==4 ) THEN                                                                                             ! mm
+      IF ( Surban_flag/=0 ) THEN                                                                                            ! mm
         call_modules = srunoff_urban()                                                                                      !
         IF ( call_modules/=0 ) CALL module_error('srunoff_urban', Arg, call_modules)                                        !          
       ENDIF                                                                                                                 ! mm
@@ -538,6 +538,12 @@
      &        '    An integration of the Precipitation-Runoff Modeling System (PRMS)', /, &
      &        '    and the Modular Groundwater Model (MODFLOW-NWT and MODFLOW-2005)', /)
 
+      PRINT 4
+      WRITE ( Logunt, 4 )
+    4 FORMAT (/, 19X, 'Urban hydrology edition (GSFLOWurban)', /, &
+     &        26X, 'Version 0.4 12/07/2018', /, &
+     &        26X, 'copyright M.Marchildon', /)
+      
       ! debug print flag:
       ! -1=quiet - reduced screen output
       ! 0=none; 1=water balances; 2=basin;
@@ -741,17 +747,28 @@
       Windspeed_cbh_flag = 0
       IF ( Et_flag==11 .OR. Et_flag==5 ) Humidity_cbh_flag = 1
       IF ( Et_flag==11 ) Windspeed_cbh_flag = 1
-
+      
+      Surban_flag = 0                                                                                                       ! mm
       IF ( Srunoff_module(:13)=='srunoff_smidx' ) THEN
         Sroff_flag = 1
       ELSEIF ( Srunoff_module(:13)=='srunoff_carea' ) THEN
         Sroff_flag = 2
-      ELSEIF ( Srunoff_module(:13)=='srunoff_scscn' ) THEN                                                                  ! mm
-        Sroff_flag = 3                                                                                                      !
-      ELSEIF ( Srunoff_module(:13)=='srunoff_urban' ) THEN                                                                  !
-        Sroff_flag = 4                                                                                                      !
-      ELSEIF ( Srunoff_module(:15)=='srunoff_grnampt' ) THEN                                                                !
-        Sroff_flag = 5                                                                                                      ! mm        
+      ELSEIF ( Srunoff_module(:13)=='srunoff_scscn' ) THEN                                                                  ! mm begin
+        Sroff_flag = 3
+      ELSEIF ( Srunoff_module(:15)=='srunoff_grnampt' ) THEN
+        Sroff_flag = 4
+      ELSEIF ( Srunoff_module(:19)=='srunoff_smidx_urban' ) THEN
+        Surban_flag = 1  
+        Sroff_flag = 1
+      ELSEIF ( Srunoff_module(:19)=='srunoff_carea_urban' ) THEN
+        Surban_flag = 1
+        Sroff_flag = 2
+      ELSEIF ( Srunoff_module(:19)=='srunoff_scscn_urban' ) THEN
+        Surban_flag = 1
+        Sroff_flag = 3
+      ELSEIF ( Srunoff_module(:21)=='srunoff_grnampt_urban' ) THEN
+        Surban_flag = 1
+        Sroff_flag = 4                                                                                                      ! mm end
       ELSEIF ( Srunoff_module(:13)/='srunoff_smidx' ) THEN
         PRINT '(/,2A)', 'ERROR, invalid srunoff_module value: ', Srunoff_module
         Inputerror_flag = 1

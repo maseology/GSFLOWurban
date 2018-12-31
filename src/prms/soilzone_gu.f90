@@ -127,7 +127,7 @@
 !***********************************************************************
       szdecl = 0
 
-      Version_soilzone = 'soilzone.f90 2018-01-24 16:03:00Z'
+      Version_soilzone = 'soilzone_gu.f90 2018-12-08 16:03:00Z'
       CALL print_module(Version_soilzone, 'Soil Zone Computations      ', 90 )
       MODNAME = 'soilzone'
 
@@ -628,7 +628,7 @@
      &    Basin_area_inv, Hru_area, Hru_frac_perv, Numlake_hrus
       USE PRMS_FLOWVARS, ONLY: Soil_moist_max, Soil_rechr_max, &
      &    Ssres_stor, Basin_ssstor, Basin_soil_moist, Slow_stor, &
-     &    Soil_moist, Sat_threshold, Soil_rechr
+     &    Soil_moist, Sat_threshold, Soil_rechr, Soil_moist_frac                                                            ! mm
       USE PRMS_SNOW, ONLY: Snowcov_area
       IMPLICIT NONE
 ! Functions
@@ -716,6 +716,7 @@
           Sat_threshold(i) = 0.0
           Pref_flow_den(i) = 0.0
           Pref_flow_max(i) = 0.0
+          Soil_moist_frac(i) = 0.0                                                                                          ! mm
           CYCLE
         ELSE                                                                                                                ! mm
           IF ( Sat_threshold(i)<0.00001 ) Sat_threshold(i) = 0.00001                                                        ! mm  
@@ -813,7 +814,7 @@
         hruperv = Hru_perv(i)
         Soil_zone_max(i) = Sat_threshold(i) + Soil_moist_max(i)*Hru_frac_perv(i)
         Soil_moist_tot(i) = Ssres_stor(i) + Soil_moist(i)*Hru_frac_perv(i)
-!        Soil_moist_frac(i) = Soil_moist_tot(i)/Soil_zone_max(i)
+        Soil_moist_frac(i) = Soil_moist_tot(i)/Soil_zone_max(i)                                                             ! mm
 !        Cpr_stor_frac(i) = Soil_moist(i)/Soil_moist_max(i)
 !        IF ( Pref_flow_thrsh(i)>0.0 ) Gvr_stor_frac(i) = Slow_stor(i)/Pref_flow_thrsh(i)
 !        Basin_cpr_stor_frac = Basin_cpr_stor_frac + DBLE( Cpr_stor_frac(i)*hruperv )
@@ -964,7 +965,7 @@
       INTEGER FUNCTION szrun()
       USE PRMS_SOILZONE
       USE PRMS_MODULE, ONLY: Dprst_flag, Print_debug, Kkiter, &
-     &    Model, Nlake, Nhrucell, Cascade_flag, Dprst_flag, Sroff_flag, Gw_flag                                             ! mm
+     &    Model, Nlake, Nhrucell, Cascade_flag, Dprst_flag, Surban_flag, Gw_flag                                            ! mm
       USE PRMS_BASIN, ONLY: Hru_type, Hru_perv, Hru_frac_perv, &
      &    Hru_route_order, Active_hrus, Basin_area_inv, Hru_area, &
      &    NEARZERO, Lake_hru_id, Cov_type, Numlake_hrus, Hru_area_dble
@@ -975,7 +976,8 @@
      &    Soil_to_ssr, Basin_lakeevap, Basin_perv_et, Basin_swale_et, &
      &    Sroff, Soil_moist_max, Infil, Soil_rechr_max, Ssres_in, &
      &    Basin_soil_moist, Basin_ssstor, Slow_stor, Slow_flow, &
-     &    Ssres_stor, Soil_moist, Sat_threshold, Soil_rechr, Basin_lake_stor
+     &    Ssres_stor, Soil_moist, Sat_threshold, Soil_rechr, Basin_lake_stor, &                                             ! mm
+     &    Soil_moist_frac                                                                                                   ! mm
       USE PRMS_CASCADE, ONLY: Ncascade_hru
       USE PRMS_SET_TIME, ONLY: Nowmonth !, Nowday
       USE PRMS_INTCP, ONLY: Hru_intcpevap
@@ -1182,7 +1184,7 @@
         ENDIF
         ! Soil_to_ssr for whole HRU
         Soil_to_ssr(i) = gvr_maxin
-        IF ( Sroff_flag==4 ) gvr_maxin = gvr_maxin + Urban_to_ssr(i)                                                        ! mm
+        IF ( Surban_flag/=0 ) gvr_maxin = gvr_maxin + Urban_to_ssr(i)                                                       ! mm
 
 ! compute slow interflow and ssr_to_gw
         topfr = 0.0
@@ -1381,14 +1383,14 @@
         IF ( Soil_lower_stor_max(i)>0.0 ) Soil_lower_ratio(i) = Soil_lower(i)/Soil_lower_stor_max(i)
 !        Soil_rechr_ratio(i) = Soil_rechr(i)/Soil_rechr_max(i)
         Ssres_in(i) = Soil_to_ssr(i) + Pref_flow_infil(i) + SNGL( gwin )
-        IF ( Sroff_flag==4 )  Ssres_in(i) =  Ssres_in(i) + Urban_to_ssr(i)                                                  ! mm
+        IF ( Surban_flag/=0 )  Ssres_in(i) =  Ssres_in(i) + Urban_to_ssr(i)                                                 ! mm
         IF ( Gw_flag==2 )  Ssres_in(i) =  Ssres_in(i) + Gwr_to_ssr(i)                                                       ! mm
         Basin_ssin = Basin_ssin + DBLE( Ssres_in(i)*harea )
         Basin_ssstor = Basin_ssstor + DBLE( Ssres_stor(i)*harea )
         Basin_slstor = Basin_slstor + DBLE( Slow_stor(i)*harea )
         Soil_moist_tot(i) = Ssres_stor(i) + DBLE( Soil_moist(i)*perv_frac )
         Basin_soil_moist_tot = Basin_soil_moist_tot + DBLE( Soil_moist_tot(i)*harea )
-!        Soil_moist_frac(i) = Soil_moist_tot(i)/Soil_zone_max(i)
+        Soil_moist_frac(i) = Soil_moist_tot(i)/Soil_zone_max(i)                                                             ! mm
 !        Cpr_stor_frac(i) = Soil_moist(i)/Soil_moist_max(i)
 !        IF ( Pref_flow_thrsh(i)>0.0 ) Gvr_stor_frac(i) = Slow_stor(i)/Pref_flow_thrsh(i)
 !        Basin_cpr_stor_frac = Basin_cpr_stor_frac + Cpr_stor_frac(i)*perv_area

@@ -5,8 +5,8 @@
         IMPLICIT NONE
 !   Local Variables
         INTEGER, SAVE :: BALUNT, SZUNIT, GWUNIT, INTCPUNT, SROUNIT, SNOWUNIT
-        REAL, PARAMETER :: TOOSMALL = 1.0E-05, SMALL = 1.0E-04, BAD = 1.0E-03
-        DOUBLE PRECISION, PARAMETER :: DSMALL = 1.0D-04, DTOOSMALL = 1.0D-05
+        REAL, SAVE :: TOOSMALL, SMALL, BAD                                                                                  !mm
+        DOUBLE PRECISION, SAVE :: DSMALL, DTOOSMALL                                                                         !mm
         DOUBLE PRECISION, SAVE :: Last_basin_gwstor, Basin_dprst_wb
         DOUBLE PRECISION, ALLOCATABLE, SAVE :: Hru_storage_ante(:), Gwstor_ante(:)
         CHARACTER(LEN=13), SAVE :: MODNAME_WB
@@ -53,7 +53,7 @@
 ! Local Variables
       CHARACTER(LEN=80), SAVE :: Version_water_balance
 !***********************************************************************
-      Version_water_balance = 'water_balance.f90 2016-06-03 12:31:00Z'
+      Version_water_balance = 'water_balance_gu.f90 2016-06-03 12:31:00Z'
       CALL print_module(Version_water_balance, 'Water Balance Computations  ', 90 )
       MODNAME_WB = 'water_balance'
 
@@ -123,8 +123,15 @@
 !***********************************************************************
       SUBROUTINE water_balance_init()
       USE PRMS_WATER_BALANCE
+      USE PRMS_BASIN, ONLY: Active_hrus                                                                                     ! mm
       USE PRMS_FLOWVARS, ONLY: Gwres_stor
       USE PRMS_GWFLOW, ONLY: Basin_gwstor, Hru_storage
+! Functions                                                                                                                 ! mm begin
+      INTRINSIC INT, LOG10, DBLE, SNGL
+! Local Variables
+      INTEGER :: logac
+      REAL :: smult
+      DOUBLE PRECISION :: dmult                                                                                             ! mm end
 !***********************************************************************
       Basin_capillary_wb = 0.0D0
       Basin_gravity_wb = 0.0D0
@@ -134,6 +141,25 @@
       Gwstor_ante = Gwres_stor
       Hru_storage_ante = Hru_storage
 
+      logac = INT(LOG10(SNGL(Active_hrus))) - 3                                                                             ! mm begin
+      TOOSMALL = 1.0E-05
+      SMALL = 1.0E-04
+      BAD = 1.0E-03
+      DTOOSMALL = 1.0D-05      
+      DSMALL = 1.0D-04
+      IF ( logac>0 ) THEN
+        ! This has been added to loosen the constraints for model-wide water balances for models with a large amount of HRUs.
+        ! Typically, in the water_balance.f90 module, unaccounted water is tallied, with a large model (>10,000 HRUs) this tally
+        ! will cause an unnecessary error or warning added to the wbal.msg output file.
+        smult = 10.0**SNGL(logac)
+        dmult = 10.0D0**DBLE(logac)
+        TOOSMALL = TOOSMALL*smult !1.0E-05
+        SMALL = SMALL*smult !1.0E-04
+        BAD = BAD*smult !1.0E-03
+        DTOOSMALL = DTOOSMALL*dmult !1.0D-05
+        DSMALL = DSMALL*dmult !1.0D-04        
+      ENDIF                                                                                                                 ! mm end
+      
       END SUBROUTINE water_balance_init
 
 !***********************************************************************
@@ -141,7 +167,7 @@
 !***********************************************************************
       SUBROUTINE water_balance_run()
       USE PRMS_WATER_BALANCE
-      USE PRMS_MODULE, ONLY: Cascade_flag, Cascadegw_flag, Dprst_flag, Sroff_flag                                           ! mm
+      USE PRMS_MODULE, ONLY: Cascade_flag, Cascadegw_flag, Dprst_flag, Surban_flag                                          ! mm
       USE PRMS_BASIN, ONLY: Hru_route_order, Active_hrus, Hru_frac_perv, Hru_area_dble, Hru_perv, &
      &    Hru_type, Basin_area_inv, NEARZERO, Dprst_area_max, Hru_percent_imperv, Hru_frac_dprst, Cov_type, DNEARZERO
       USE PRMS_CLIMATEVARS, ONLY: Hru_ppt, Basin_ppt, Hru_rain, Hru_snow, Newsnow, Pptmix
@@ -260,7 +286,7 @@
         IF ( Cascade_flag==1 ) robal = robal + SNGL( Upslope_hortonian(i) - Hru_hortn_cascflow(i) )
         IF ( Dprst_flag==1 ) robal = robal - Dprst_evap_hru(i) + &
      &                               SNGL( Dprst_stor_ante(i) - Dprst_stor_hru(i) - Dprst_seep_hru(i) ) !- Dprst_in(i) - Dprst_insroff_hru(i)
-        IF ( Sroff_flag==4 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                            ! mm
+        IF ( Surban_flag/=0 ) robal = robal - Urban_to_stdrn(i) - Urban_to_ssr(i)                                           ! mm
         basin_robal = basin_robal + DBLE( robal )
         IF ( ABS(robal)>TOOSMALL ) THEN
           IF ( Dprst_flag==1 ) THEN
@@ -284,7 +310,7 @@
             WRITE ( BALUNT, * ) 'HRU surface runoff rounding issue', i, ' hru_type:', Hru_type(i)
           ENDIF
           IF ( Cascade_flag==1 ) THEN
-            WRITE ( BALUNT, '(3I3,F10.6,17F10.4)' ) Nowmonth, Nowday, Pptmix_nopack(i), robal, Snowmelt(i), &
+            WRITE ( BALUNT, '(3I3,F12.6,17F12.4)' ) Nowmonth, Nowday, Pptmix_nopack(i), robal, Snowmelt(i), &               !mm
      &              Upslope_hortonian(i), Imperv_stor_ante(i), Hru_hortn_cascflow(i), Infil(i), Hortonian_flow(i), &
      &              Hru_impervstor(i), Hru_impervevap(i), Net_ppt(i), &
      &              Pkwater_equiv(i), Snow_evap(i), Net_snow(i), Net_rain(i), Hru_sroffp(i), Hru_sroffi(i), harea
@@ -312,7 +338,7 @@
         gvrbal = last_ss - Ssres_stor(i) + Soil_to_ssr(i) - Ssr_to_gw(i) - Swale_actet(i) - Dunnian_flow(i) &
      &           - Ssres_flow(i) + Pfr_dunnian_flow(i) + Pref_flow_infil(i)
         IF ( Cascade_flag==1 ) gvrbal = gvrbal - Hru_sz_cascadeflow(i)
-        IF ( Sroff_flag==4 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                              ! mm
+        IF ( Surban_flag/=0 ) gvrbal = gvrbal + Urban_to_ssr(i)                                                             ! mm
         test = ABS( gvrbal )
         IF ( test>TOOSMALL ) THEN
           WRITE ( BALUNT, * ) 'Bad GVR balance, HRU:', i, ' hru_type:', Hru_type(i)
@@ -329,7 +355,7 @@
         IF ( Cascade_flag==1 ) waterout = waterout + Hru_sz_cascadeflow(i)
         soil_in = soil_in + DBLE(Infil(i)*perv_frac)*harea
         soilbal = waterin - waterout + last_ss - Ssres_stor(i) + (last_sm-Soil_moist(i))*perv_frac
-        IF ( Sroff_flag==4 ) soilbal = soilbal + Urban_to_ssr(i)                                                            ! mm
+        IF ( Surban_flag/=0 ) soilbal = soilbal + Urban_to_ssr(i)                                                           ! mm
         basin_bal = basin_bal + DBLE(soilbal)*harea
         test = ABS( soilbal )
         IF ( test>TOOSMALL ) THEN
@@ -363,7 +389,7 @@
           hru_out = hru_out + Hru_gw_cascadeflow(i)
           hru_in = hru_in + Gw_upslope(i)/DBLE(harea)
         ENDIF
-        IF ( Sroff_flag==4 ) hru_out = hru_out + Urban_to_stdrn(i)                                                          ! mm
+        IF ( Surban_flag/=0 ) hru_out = hru_out + Urban_to_stdrn(i)                                                         ! mm
         wbal = hru_in - hru_out + Hru_storage_ante(i) - Hru_storage(i)
         IF ( Gwminarea_flag==1 ) wbal = wbal + Gwstor_minarea_wb(i)
         IF ( DABS(wbal)>DTOOSMALL ) THEN
@@ -478,7 +504,7 @@
       basin_bal = basin_bal*Basin_area_inv
       bsmbal = Last_soil_moist - Basin_soil_moist + Last_ssstor - Basin_ssstor - Basin_perv_et - Basin_sz2gw + soil_in - &
      &         Basin_ssflow - Basin_soil_to_gw - Basin_dunnian - Basin_swale_et - Basin_lakeinsz
-      IF ( Sroff_flag==4 ) bsmbal = bsmbal + Basin_urban_to_ssr                                                             ! mm
+      IF ( Surban_flag/=0 ) bsmbal = bsmbal + Basin_urban_to_ssr                                                            ! mm
 
       WRITE ( SZUNIT, 9002 ) Nowyear, Nowmonth, Nowday, basin_bal, &
      &        bsmbal, Last_soil_moist, Basin_soil_moist, Last_ssstor, &
@@ -522,8 +548,8 @@
      &        Basin_gw_upslope, Basin_gwstor_minarea_wb, Basin_dnflow
       Last_basin_gwstor = Basin_gwstor
 
- 9001 FORMAT (I5, 2('/', I2.2), I7, 26F11.5)
- 9002 FORMAT (I5, 2('/', I2.2), 23F11.5)
- 9003 FORMAT (A, I5, 2('/', I2.2), F12.5)
+ 9001 FORMAT (I5, 2('/', I2.2), I7, 26F15.5)                                                                                !mm
+ 9002 FORMAT (I5, 2('/', I2.2), 23F15.5)                                                                                    !mm
+ 9003 FORMAT (A, I5, 2('/', I2.2), F15.5)                                                                                   !mm
 
       END SUBROUTINE water_balance_run
