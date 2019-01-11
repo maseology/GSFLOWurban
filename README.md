@@ -1,6 +1,6 @@
 # GSFLOWurban
 
-An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/). Built upon (and backward compatible to) GSFLOW version 1.2.2. [See *Draft* Manual](/doc/GSFU_man_Dec18.pdf).
+An urban development water balance analysis expansion to [GSFLOW: coupled groundwater and surface-water flow model](https://water.usgs.gov/ogw/gsflow/). Built upon (and backward compatible to) GSFLOW version 1.2.2. [See *Draft* Manual](/doc/GSFU_man_Jan19.pdf).
 
 **Model capabilities:**
 
