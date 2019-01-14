@@ -34,6 +34,16 @@ static void INSERT_time (char *, DATETIME *);
 static double   prevjt = -1.0;
 */
 
+
+/**************************************************************************			// PJT - 2018Jan03 - Mod to Support Rainfall Intensity
+* read_line_() is called from Fortran, read_line()
+*/
+
+long read_line_(void) {
+	read_line();
+}																					// !PJT - 2018Jan03 - Mod to Support Rainfall Intensity
+
+
 /**6**************** EXPORTED FUNCTION DEFINITIONS ********************/
 /*--------------------------------------------------------------------*\
  | FUNCTION     : read_line
@@ -182,11 +192,11 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
 			return (ERROR_TIME);
 		 }
 
-         if ((Mnowtime->jt - Mprevjt) < 0.0000115) {
+         if ((Mnowtime->jt - Mprevjt) < 0.0000115) {		// PJT - FYI, 0.0000115 days is .9936 seconds (1 sec is the minimum possible timespan)
 /*
 ** DANGER This hack is to come out of the storm
 */
-            (void)fprintf (stderr,"read_line:  comming out of storm. dt = 1 day\n");
+           // (void)fprintf (stderr,"read_line:  comming out of storm. dt = 1 day\n");		   // PJT - Commented out, 2019Jan04 (lets not tie up the console with these details)
             Mdeltat = 1.0;
             Mprevjt = Mnowtime->jt - Mdeltat;
 
@@ -243,7 +253,7 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
 
          Mprevjt = Mnowtime->jt;
 
-         if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {
+         if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {   //pjt - we ask for the next line in THIS FILE, not looking for others files that may be in play
             fclose (cur_fd->fp);
             cur_fd->fp = NULL;
             cur_fd->time.year = 9999;
@@ -259,6 +269,13 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
             }
          }
 
+		 //PJT - 2019Jan11  - Call FILE_with_next_ts to ensure we're grabbing the correct file (and the correct deltim & delnext values) when multiple files are specified
+		 /*
+		 **  Load cur_fd with the data for the next time step.
+		 */
+		 cur_fd = FILE_with_next_ts();
+		 //PJT - 2019Jan11
+
 /*
 **   Copy time from current file into global next time structure
 */
@@ -271,7 +288,7 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
             Mnexttime->sec = cur_fd->time.sec;
             Mnexttime->jd = cur_fd->time.jd;
             Mnexttime->jt = cur_fd->time.jt;
-            Mdeltanext = Mnexttime->jt - Mnowtime->jt;
+            Mdeltanext = Mnexttime->jt - Mnowtime->jt;  //pjt - the interval between the current and next data line
          }
          return (0);
       } else {
@@ -512,58 +529,62 @@ FILE_DATA * FILE_with_next_ts (void) {
    for (i = 1; i < num_data_files; i++) {
         fd_ptr = fd[i];  
       if (fd_ptr->time.year != 9999) {
-/*
-**   If two files have the same julian day, assume one is a storm file
-**   and one is a daily file.  Throw out the daily value.
-*/
-         if (fd_ptr->time.jd == cur_fd->time.jd) {
-            if (fd_ptr->time.jt == cur_fd->time.jt) {
-               (void)fprintf (stderr,
-                  "FILE_with_next_ts: The files %s and %s both seem to contain the same storm on %ld - %ld - %ld.\n",
-                  fd_ptr->name, cur_fd->name, fd_ptr->time.year,
-                  fd_ptr->time.month, fd_ptr->time.day);
+		  if (fd_ptr->time.jt < cur_fd->time.jt) {
+			  cur_fd = fd_ptr;
+		  }
 
-            } else if (fd_ptr->time.jt < cur_fd->time.jt) {
-
-               Mprevjt = fd_ptr->time.jt;
-
-               if (!(fgets (fd_ptr->line, max_data_ln_len, fd_ptr->fp))) {
-                  fclose (fd_ptr->fp);
-                      fd_ptr->fp = NULL;
-                  fd_ptr->time.year = 9999;
-               } else if (fd_ptr->line[0] == '\n') {
-                  fclose (fd_ptr->fp);
-                      fd_ptr->fp = NULL;
-                  fd_ptr->time.year = 9999;
-               } else {
-                  err_ptr = EXTRACT_time (fd_ptr);
-                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
-               }
-
-
-            } else {
-
-               Mprevjt = cur_fd->time.jt;
-
-               if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {
-                  fclose (cur_fd->fp);
-                      cur_fd->fp = NULL;
-                  cur_fd->time.year = 9999;
-               } else if (cur_fd->line[0] == '\n') {
-                  fclose (cur_fd->fp);
-                      cur_fd->fp = NULL;
-                  cur_fd->time.year = 9999;
-               } else {
-                  err_ptr = EXTRACT_time (cur_fd);
-                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
-               }
-
-               cur_fd = fd_ptr;
-            }
-
-         } else if (fd_ptr->time.jd < cur_fd->time.jd) {
-            cur_fd = fd_ptr;
-         }
+///*
+//**   If two files have the same julian day, assume one is a storm file
+//**   and one is a daily file.  Throw out the daily value.
+//*/
+//         if (fd_ptr->time.jd == cur_fd->time.jd) {
+//            if (fd_ptr->time.jt == cur_fd->time.jt) {
+//               (void)fprintf (stderr,
+//                  "FILE_with_next_ts: The files %s and %s both seem to contain the same storm on %ld - %ld - %ld.\n",
+//                  fd_ptr->name, cur_fd->name, fd_ptr->time.year,
+//                  fd_ptr->time.month, fd_ptr->time.day);
+//
+//            } else if (fd_ptr->time.jt < cur_fd->time.jt) {
+//
+//               Mprevjt = fd_ptr->time.jt;
+//
+//               if (!(fgets (fd_ptr->line, max_data_ln_len, fd_ptr->fp))) {
+//                  fclose (fd_ptr->fp);
+//                      fd_ptr->fp = NULL;
+//                  fd_ptr->time.year = 9999;
+//               } else if (fd_ptr->line[0] == '\n') {
+//                  fclose (fd_ptr->fp);
+//                      fd_ptr->fp = NULL;
+//                  fd_ptr->time.year = 9999;
+//               } else {
+//                  err_ptr = EXTRACT_time (fd_ptr);
+//                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
+//               }
+//
+//
+//            } else {
+//
+//               Mprevjt = cur_fd->time.jt;
+//
+//               if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {
+//                  fclose (cur_fd->fp);
+//                      cur_fd->fp = NULL;
+//                  cur_fd->time.year = 9999;
+//               } else if (cur_fd->line[0] == '\n') {
+//                  fclose (cur_fd->fp);
+//                      cur_fd->fp = NULL;
+//                  cur_fd->time.year = 9999;
+//               } else {
+//                  err_ptr = EXTRACT_time (cur_fd);
+//                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
+//               }
+//
+//               cur_fd = fd_ptr;
+//            }
+//
+//         } else if (fd_ptr->time.jd < cur_fd->time.jd) {
+//            cur_fd = fd_ptr;
+//         }
       }
    }
 

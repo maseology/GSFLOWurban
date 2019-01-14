@@ -9,6 +9,8 @@
 !   Declared Variables
       INTEGER, SAVE :: Rain_day
       REAL, SAVE, ALLOCATABLE :: Pan_evap(:), Runoff(:), Precip(:)
+      REAL, SAVE, ALLOCATABLE :: SubDailyPrecip(:, :), SubDailyObsTimes(:)                      ! PJT - 2018Jan03 - Sub-daily precip inputs
+      INTEGER, SAVE :: NumPrecipObs                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs
       REAL, SAVE, ALLOCATABLE :: Humidity(:), Wind_speed(:)
       REAL, SAVE, ALLOCATABLE :: Tmax(:), Tmin(:), Solrad(:), Snowdepth(:)
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Streamflow_cfs(:), Streamflow_cms(:)
@@ -73,6 +75,7 @@
       INTEGER FUNCTION obsdecl()
       USE PRMS_OBS
       USE PRMS_MODULE, ONLY: Precip_flag, Model, Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap
+      USE PRMS_MODULE, ONLY: NmaxPrecipObs                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: declvar, getdim, declparam
@@ -113,6 +116,26 @@
      &       'precip_units', Precip)/=0 ) CALL read_error(8, 'precip')
       ENDIF
 
+      !If required, create storage space for sub-daily precipitation values                             ! PJT - 2018Jan03 - Sub-daily precip inputs      
+      IF ( NmaxPrecipObs>0 ) THEN                                                                       ! PJT - 2018Jan03    
+        ALLOCATE ( SubDailyPrecip(Nrain, NmaxPrecipObs) )
+        IF ( declvar(MODNAME, 'subdailyprecip', 'nrain,nmaxprecipobs', Nrain*NmaxPrecipObs, 'real', & 
+     &       'Sub-daily precipitation values, read and populated for' //  &   
+     &       ' each timestep sub-daily values are available, requires' // &  
+     &       ' Green&Ampt module to be active.', &  
+     &       'precip_units', SubDailyPrecip)/=0 ) CALL read_error(3, 'subdailyprecip')   
+
+        ALLOCATE ( SubDailyObsTimes( NmaxPrecipObs) )
+        IF ( declvar(MODNAME, 'subdailyobstimes', 'nmaxprecipobs', NmaxPrecipObs, 'real', &  
+     &       'Timestep associated with each sub-daily precipitation value, ' //  &
+     &       ' in decimal hours, requires Green&Ampt module to be active.', &    
+     &       'hours', SubDailyObsTimes)/=0 ) CALL read_error(3, 'subdailyobstimes')
+
+        IF ( declvar(MODNAME, 'numprecipobs', 'one', 1, 'integer', &
+     &       'Number of sub-daily precip observations in this timestep', &
+     &       'none', NumPrecipObs)/=0 ) CALL read_error(8, 'numprecipobs')                              ! PJT - 2018Jan03 
+      ENDIF                                                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs 
+      
       IF ( Ntemp>0 ) THEN
         ALLOCATE ( Tmin(Ntemp) )
         IF ( declvar(MODNAME, 'tmin', 'ntemp', Ntemp, 'real', &
@@ -264,6 +287,7 @@
       INTEGER FUNCTION obsrun()
       USE PRMS_OBS
       USE PRMS_MODULE, ONLY: Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap
+      USE PRMS_MODULE, ONLY: NmaxPrecipObs                                                      ! PJT - 2018Jan03 - Sub-daily precip inputs
       USE PRMS_BASIN, ONLY: CFS2CMS_CONV
       USE PRMS_SET_TIME, ONLY: Nowmonth
       IMPLICIT NONE
@@ -271,10 +295,21 @@
       INTRINSIC DBLE
       INTEGER, EXTERNAL :: readvar
       EXTERNAL :: read_error
+      DOUBLE PRECISION, EXTERNAL :: deltim, delnex                                              ! PJT - 2018Jan03 - Sub-daily precip inputs
+      EXTERNAL :: dattim                                                                        ! PJT - 2018Jan03 - Sub-daily precip inputs
+      INTEGER, EXTERNAL ::  read_line                                                           ! PJT - 2018Jan03 - Sub-daily precip inputs
 ! Local Variables
-      INTEGER :: i
+      INTEGER :: i, j                                                                   
+      DOUBLE PRECISION :: dtn                                                                   ! PJT - 2018Jan03 - Sub-daily precip inputs
+      INTEGER :: CheckTime(6)                                                                   ! PJT - 2018Jan03 - Sub-daily precip inputs
+      INTEGER :: CallReadLine
 ! **********************************************************************
       obsrun = 0
+      
+        CALL dattim('now', CheckTime)
+        if (CheckTime(3)==3) THEN 
+            testtempPrecip=0
+        ENDIF
 
       IF ( Nobs>0 ) THEN
         IF ( readvar(MODNAME, 'runoff')/=0 ) CALL read_error(9, 'runoff')
@@ -333,7 +368,82 @@
       IF ( Nwind>0 ) THEN
         IF ( readvar(MODNAME, 'wind_speed')/=0 ) CALL read_error(9, 'wind_speed')
       ENDIF
+      
+      !If specified, check for sub-daily precip values in the DATA file(s)                  ! PJT - 2018Jan03 - Sub-daily precip inputs  (Start)
+      IF ( NmaxPrecipObs>0 ) THEN                                                           ! PJT - 2018Jan03
+          
+          !Clear the subdaily arrays
+          SubDailyPrecip = 0.0          
+          SubDailyObsTimes = 0.0
+          !Zero the counter
+          NumPrecipObs=0
 
+          !Check if there are intensity values provided for this time step (returns the timespan between the current and next observation in hours)
+          dtn = delnex()
+
+          !Get the time stamp of the intensity observation
+          CALL dattim('now', CheckTime)
+          
+          !Are there instantaneous records provided? 
+          IF (dtn < 24)  THEN
+                !A series of values have been provided, assume these are precip observations (must have activated the Green&Ampt package to get here anyways)
+              
+                !Is the first observation a daily value which we should ignore?
+                IF (CheckTime(4) + CheckTime(5)+ CheckTime(6) == 0) THEN
+                    !Call MMS to advance to the first sub-daily observation within the DATA file(s)
+                    CallReadLine= read_line()
+                ENDIF
+                
+            DO
+                !MMS has been advanced to the first set of sub-daily observations, increment through all sub-daily values while storing 
+                
+                !Increment the counter
+                NumPrecipObs=NumPrecipObs + 1
+                
+                !Get the timestamp of the intensity observation
+                CALL dattim('now', CheckTime)
+                
+                !Store timestamp (decimal hours)
+                SubDailyObsTimes(NumPrecipObs)=CheckTime(4)+CheckTime(5)/SNGL(60)+CheckTime(6)/SNGL(3600)
+                !Sanity Check, all time values should be less than 24hr
+                IF (SubDailyObsTimes(NumPrecipObs)>24) THEN
+                    PRINT *, 'ERROR (obs.f90) - There are sub-daily timestamp values that exceed 24hrs.   Timestamp (hrs) =',SubDailyObsTimes(NumPrecipObs)
+                ENDIF
+                
+                !Read the intesity observations for this timestamp
+                IF ( readvar(MODNAME, 'precip')/=0 ) CALL read_error(9, 'precip')
+
+                !Store the precip values
+                DO i = 1, Nrain
+                    SubDailyPrecip(i,NumPrecipObs)=Precip(i)
+                ENDDO
+               
+                !Call for the duration of intensity interval
+                dtn = delnex()
+
+                !Does the next intensity value lie outside this computational day?
+                IF (dtn + DBLE(CheckTime(4))+DBLE(CheckTime(5))/DBLE(60)+DBLE(CheckTime(6))/DBLE(3600)>24.0 - 1/DBLE(360000))  THEN  !1/DBLE(360000) is a quick and dirty check for round off error
+                    !This value is from another computational day, EXIT the loop
+                    EXIT
+                ENDIF
+                
+                !Call MMS to advance to the next observation within the DATA file(s), will only stay in this loop if there are additional sub-daily values associated with this Julian day
+                CallReadLine= read_line()
+
+            END DO
+           
+            !Anytime sub-daily values are provided, the daily values are ignored completely (i.e., the total daily precip will need to be summed from the sub-daily values)
+            Precip=0.0
+            DO j = 1, NumPrecipObs
+                DO i = 1, Nrain
+                    Precip(i) =Precip(i)+ SubDailyPrecip(i,j)
+                ENDDO
+            ENDDO
+                                                                                            ! PJT - 2018Jan03
+          ENDIF                                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs  (End)
+
+      ENDIF
+      
       END FUNCTION obsrun
 
 !***********************************************************************

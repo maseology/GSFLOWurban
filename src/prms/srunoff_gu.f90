@@ -21,7 +21,7 @@
       REAL, SAVE :: Srp, Sri, Perv_frac, Imperv_frac, Hruarea_imperv, Hruarea
       DOUBLE PRECISION, SAVE :: Hruarea_dble
       REAL, SAVE, ALLOCATABLE :: Ga_f(:), Scs_cn_si(:), Scs_cn_w1(:), Scs_cn_w2(:)                                          ! mm
-      INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm      
+      INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm 
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Basin_sroff_down, Basin_sroff_upslope
       DOUBLE PRECISION, SAVE :: Basin_sroffi, Basin_sroffp
@@ -34,6 +34,8 @@
       REAL, SAVE, ALLOCATABLE :: Hortonian_flow(:)
       REAL, SAVE, ALLOCATABLE :: Hru_impervevap(:), Hru_impervstor(:)
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Strm_seg_in(:), Hortonian_lakes(:), Hru_hortn_cascflow(:)
+      REAL, SAVE, ALLOCATABLE :: ga_pprop(:, :), ga_intvl(:, :)                                                             ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
+      INTEGER, SAVE, ALLOCATABLE :: ga_nint(:)                                                                              ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
 !   Declared Parameters
       REAL, SAVE, ALLOCATABLE :: Smidx_coef(:), Smidx_exp(:)
       REAL, SAVE, ALLOCATABLE :: Carea_min(:), Carea_max(:)
@@ -89,12 +91,14 @@
       USE PRMS_SRUNOFF
       USE PRMS_MODULE, ONLY: Model, Dprst_flag, Nhru, Nsegment, Print_debug, &
      &    Cascade_flag, Sroff_flag, Nlake, Init_vars_from_file, Call_cascade
+      USE PRMS_MODULE, ONLY: Nrain, NmaxPrecipObs                                                                           ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: declvar, declparam
       EXTERNAL read_error, print_module
 ! Local Variables
       CHARACTER(LEN=80), SAVE :: Version_srunoff
+      INTEGER :: iGreenAmptIntervals                                                                                        ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
 !***********************************************************************
       srunoffdecl = 0
 
@@ -252,6 +256,39 @@
       IF ( declvar(MODNAME, 'hortonian_flow', 'nhru', Nhru, 'real', &
      &     'Hortonian surface runoff reaching stream network for each HRU', &
      &     'inches', Hortonian_flow)/=0 ) CALL read_error(3, 'hortonian_flow')
+
+      ! Declare Sub-daily Green&Ampt Process Variables
+      IF ( Sroff_flag==4 .OR. Model==99 ) THEN                                                                              ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
+        !Must ensure each array reserves space for daily precip intervals when no sub-daily observations are provided       ! PJT - 2018Jan04
+        iGreenAmptIntervals = 1
+        IF (NmaxPrecipObs>0) THEN
+            iGreenAmptIntervals =NmaxPrecipObs+1
+        ENDIF
+     
+        ! Note, these arrays are allocated on an Nrain basis (i.e., the array is only as wide as the number of rainfall stations). This could be allocated on
+        ! an nHRU basis if at some point in the future if interception is removed from the sub-daily values.  Proceeding on an nRain basis for now to reduce
+        ! the memory bandwidth of the sub-daily arrays AND to allow these calculations to be executed only once per station as opposed to for every HRU. PJT
+        ALLOCATE ( ga_pprop(Nrain, iGreenAmptIntervals) ) 
+        IF ( declvar(MODNAME, 'ga_pprop', 'nrain,nmaxprecipobs', Nrain*iGreenAmptIntervals, 'real', &     ! given we can't correctly dimension these variables, why declare them for output?  (Maybe just keep as module varaibles?)
+     &       'Proportion of daily rainfall occuring during each sub-daily' //  &
+     &       ' computational interval (values must sum to 1.0), requires' // &                
+     &       ' Green&Ampt module to be active.', &     
+     &       'one', ga_pprop)/=0 ) CALL read_error(3, 'ga_pprop')              
+
+        ALLOCATE ( ga_intvl(Nrain, iGreenAmptIntervals) ) 
+        IF ( declvar(MODNAME, 'ga_intvl', 'nrain,nmaxprecipobs', Nrain*iGreenAmptIntervals, 'real', &     ! given we can't correctly dimension these variables, why declare them for output?  (Maybe just keep as module varaibles?)  
+     &       ' ratio of substep rainfall to total daily rainfall (array must sum to 1.0)' //  &
+     &       ' computational interval (values must sum to 1.0), requires' // &                
+     &       ' Green&Ampt module to be active.', &         
+     &       'one', ga_intvl)/=0 ) CALL read_error(3, 'ga_intvl')            
+      
+        ALLOCATE ( ga_nint( Nrain) )                                               
+        IF ( declvar(MODNAME, 'ga_nint', 'nrain', Nrain, 'integer', &    
+     &       'Number of sub-daily infil computations for each rainfall station, ' //  &                  
+     &       ' in decimal hours, requires Green&Ampt module to be active.', &                       
+     &       'none', ga_nint)/=0 ) CALL read_error(3, 'ga_nint')                
+                                                                                                                            ! PJT - 2018Jan04
+      ENDIF                                                                                                                 ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
 
 ! cascading variables and parameters
       IF ( Cascade_flag==1 .OR. Model==99 ) THEN
@@ -603,6 +640,7 @@
       USE PRMS_SRUNOFF
       USE PRMS_MODULE, ONLY: Dprst_flag, Cascade_flag, Call_cascade, Print_debug, &                                         ! mm
      &    Surban_flag, Ndscn, Ninfstor                                                                                      ! mm
+      USE PRMS_MODULE, ONLY: Sroff_flag      
       USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, &
      &    Hru_perv, Hru_imperv, Hru_percent_imperv, Hru_frac_perv, &
      &    Dprst_area_max, Hru_area, Hru_type, Basin_area_inv, &
@@ -667,7 +705,12 @@
         Basin_dprst_volop = 0.0D0
         Basin_dprst_volcl = 0.0D0
       ENDIF
-
+     
+      !Calculate the Green&Ampt intensity variables for this Julian day                                                     ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
+      IF ( Sroff_flag==4) THEN                                                                                              ! PJT - 2018Jan04
+         CALL compute_subdaily_intensities()                                                                                ! PJT - 2018Jan04
+      ENDIF                                                                                                                 ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables                       
+      
       dprst_chk = 0
       DO k = 1, Active_hrus
         i = Hru_route_order(k)
@@ -1498,18 +1541,20 @@
       END SUBROUTINE dprst_comp
 
 !***********************************************************************                                                    ! mm begin
-!     Function used to determine cummulative infiltraton, based on the
+!     Function used to determine cumulative infiltration, based on the
 !     Green-Ampt approximation (Green, W.H., G.A. Ampt, 1911. Studies 
 !               of Soil Physics, 1: The Flow of Air and Water Through 
 !               Soils. Journal of Agricultural Science 4(1). pp.1-24.).
 !     based on: Chu, S.T., 1978. Infiltration During an Unsteady Rain. 
-!               Water Research Research 14(3). pp.461-466.
-!     Updates cumulative infilltration (F), returns excess rainfall (R)    
+!               Water Resources Research 14(3). pp.461-466.
+!     Updates cumulative infiltration (F), returns excess rainfall (R)    
 !***********************************************************************
       REAL FUNCTION compute_grnampt(Pptp)
       USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sypsi, Ga_f, Ga_ponded
+      USE PRMS_SRUNOFF, ONLY: ga_pprop, ga_intvl, ga_nint                                                                   ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
       USE PRMS_FLOWVARS, ONLY: Soil_moist_frac
       USE PRMS_BASIN, ONLY: CLOSEZERO
+      USE PRMS_PRECIP_1STA_LAPS, ONLY: Hru_psta                                                                             ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
       IMPLICIT NONE
       INTRINSIC LOG
 ! Arguments
@@ -1518,19 +1563,20 @@
       REAL, EXTERNAL :: fpsm
 ! Local Variables
       REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1, sm
-      INTEGER :: i
+      INTEGER :: i, iRainSta                                                                                                ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
 !***********************************************************************
       
-      REAL, ALLOCATABLE :: ga_pprop(:), ga_intvl(:)                                                                         ! mm ** TO BE MOVED ELSEWHERE
-      INTEGER :: ga_nint                                                                                                    ! mm ** TO BE MOVED ELSEWHERE      
-
-      ! **** temporarily setting unit interval as default, need to find a way to read these in ****
-      ga_nint = 1  ! number of daily sub steps (invervals)
-      ALLOCATE ( ga_intvl(ga_nint) )  ! ratio of substep rainfall to total daily rainfall (array must sum to 1.0)
-      ALLOCATE ( ga_pprop(ga_nint) )  ! proportion of daily rainfall occuring during interval
-      ga_intvl = 1.0
-      ga_pprop = 1.0
-      ! **** these should be gone once interval input is figured out ****
+      ! Commented out - PJT 2018Jan05 - Variables are now declared at the module level and populated in the subroutine compute_subdaily_intensities below
+      !REAL, ALLOCATABLE :: ga_pprop(:), ga_intvl(:)                                                                         ! mm ** TO BE MOVED ELSEWHERE
+      !INTEGER :: ga_nint                                                                                                    ! mm ** TO BE MOVED ELSEWHERE      
+      !
+      !! **** temporarily setting unit interval as default, need to find a way to read these in ****
+      !ga_nint = 1  ! number of daily sub steps (invervals)
+      !ALLOCATE ( ga_intvl(ga_nint) )  ! ratio of substep rainfall to total daily rainfall (array must sum to 1.0)
+      !ALLOCATE ( ga_pprop(ga_nint) )  ! proportion of daily rainfall occuring during interval
+      !ga_intvl = 1.0
+      !ga_pprop = 1.0
+      !! **** these should be gone once interval input is figured out ****
       
       IF ( Pptp <= 0.0 ) THEN
         Ga_f(Ihru) = 0.0
@@ -1538,7 +1584,11 @@
         compute_grnampt = 0.0
         GOTO 999
       ENDIF
-            
+      
+      !Gets the ID of the rainfall station associated with this HRU  
+      !(could default to 1 if Hru_psta is not declared - discuss the use of other precip interpolation packages with MM)
+      iRainSta=Hru_psta(Ihru)
+      
       pt = Ga_f(Ihru)
       pl = 0.0
       rt = 0.0
@@ -1549,17 +1599,17 @@
       ts = 0.0
       tcum = 0.0
       sm = (1.0-Soil_moist_frac(Ihru))*Ga_sypsi(Ihru) ! implies no moisture redistribution within the daily timestep
-      DO i = 1, ga_nint
-        pn = Pptp*ga_pprop(i)/ga_intvl(i)  ! precip intensity occurring during the current sub-interval (inches/day)
-        pt = pt + Pptp*ga_pprop(i)
-          
+      DO i = 1, ga_nint(iRainSta)
+        pn = Pptp*ga_pprop(iRainSta,i)/ga_intvl(iRainSta,i)  ! precip intensity occurring during the current sub-interval (inches/day)
+        pt = pt + Pptp*ga_pprop(iRainSta,i)
+        
         IF ( Ga_ksat(Ihru) >= pn ) THEN
           ! rainfall intensity less than infiltrability
           Ga_f(Ihru) = 0.0
           GOTO 100
         ENDIF
           
-        IF ( Ga_ponded(Ihru).NE.0 ) THEN
+       IF ( Ga_ponded(Ihru)==0 ) THEN   ! IF ( Ga_ponded(Ihru).NE.0 ) THEN  - pjt 20190107  (attention MM, is this a bug?)
           ! check whether ponding will occur in sub-timestep (Cu)
           s1 = pt - rl - Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru))
           IF (s1 > 0.0) Ga_ponded(Ihru) = 1
@@ -1576,7 +1626,7 @@
             s1 = pl + (tp - tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
             ts = sm / Ga_ksat(Ihru) * ((s1 - rl) / sm - LOG(1.0 + (s1 - rl) / sm)) ! ts: time scale shift
           ENDIF
-          tt = ga_intvl(i) + tcum - tp + ts
+          tt = ga_intvl(iRainSta,i) + tcum - tp + ts
           s1 = Ga_ksat(Ihru) * tt / sm ! KT/SM
           s1 = fpsm(s1) ! F/SM
           ft = s1 * sm ! F(t)
@@ -1603,7 +1653,7 @@
         ft = pt - rl
         tp = 0.0
 100     pl = pt
-        tcum = tcum + ga_intvl(i)
+        tcum = tcum + ga_intvl(iRainSta,i)
         Ga_f(Ihru) = Ga_f(Ihru) + ft - fl
         fl = ft
       ENDDO
@@ -1628,6 +1678,67 @@
       fpsm = 10.0 ** s1
       END FUNCTION                                                                                                          ! mm end
 
+!***********************************************************************                                                    ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables (Start)
+!     Routine to compute the sub-daily interval and intensity proportions                                                   ! PJT - 2018Jan05
+!***********************************************************************
+      SUBROUTINE compute_subdaily_intensities()
+      USE PRMS_SRUNOFF, ONLY: ga_pprop, ga_intvl, ga_nint
+      USE PRMS_MODULE, ONLY: Nrain
+      USE PRMS_OBS, ONLY: Precip, SubDailyObsTimes, SubDailyPrecip, NumPrecipObs
+! Local Variables
+      REAL :: TotalRainHours      
+      INTEGER :: i, j
+!***********************************************************************
+
+      ! PJT - Note: Possibly only a place holder subroutine, sub-daily intensities are calculated on a rain station 
+      ! basis, this saves computational time as it isn't explicitly required for each individual HRU at this time.  May 
+      ! need to be calculated on an nHRU basis in the future if station interpolation, vegetation interception, or
+      ! other HRU specific processes are added. PJT
+  
+      !Clear arrays
+      ga_pprop=0
+      ga_intvl=0
+      ga_nint=0
+      
+      !For each precip station
+      DO i = 1, Nrain
+          
+          !Are there sub-daily values?
+          IF (NumPrecipObs>0) THEN
+              !Sub-daily observations available, use to populate the Green&Ampt intensities
+              
+              !Sum the non-zero time intervals (calculate the span of the day with rainfall)
+              TotalRainHours=0
+              DO j = 1, NumPrecipObs-1
+                  IF (SubDailyPrecip(i,j)>0) THEN
+                     TotalRainHours=TotalRainHours+SubDailyObsTimes(j+1)-SubDailyObsTimes(j)
+                  ENDIF
+              ENDDO
+
+              !For each non-zero observation interval, populate intervals & intensities
+              DO j = 1, NumPrecipObs-1
+                  IF (SubDailyPrecip(i,j)>0) THEN
+                      !Increment Counter
+                      ga_nint(i)=ga_nint(i)+1
+                      !Set Interval ratio
+                      ga_intvl(i,ga_nint(i))=(SubDailyObsTimes(j+1)-SubDailyObsTimes(j))/TotalRainHours
+                      !Set precip ratio
+                      ga_pprop(i,ga_nint(i))=SubDailyPrecip(i,j)/Precip(i)
+     
+                  ENDIF
+              ENDDO
+          
+          ELSE
+              !Daily obs only (assuming steady 24hr rainfall)
+              ga_intvl(Nrain,1) = 1.0
+              ga_pprop(Nrain,1) = 1.0
+              ga_nint(Nrain)=1
+          ENDIF
+
+      ENDDO
+                                                                                                                            ! PJT - 2018Jan05
+      END SUBROUTINE                                                                                                        ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables (End)
+     
 !***********************************************************************
 !     Routine used to compute evaporation from disconnected storage
 !     reservoirs
