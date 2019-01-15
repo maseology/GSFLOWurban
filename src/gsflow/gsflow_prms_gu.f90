@@ -778,7 +778,7 @@
       Soilzone_module = 'soilzone'
 
       IF ( PRMS_flag==1 ) THEN                                                                                              ! mm begin
-        Gw_module = ' '
+        !Gw_module = ' '           !PJT - 2019Jan14 - Add control string in setup_cont.c for the PRMS groundwater module, default value of 'gwflow' (EXE won't crash when gw_module is not specified in the control file)
         IF ( control_string(Gw_module, 'gw_module')/=0 ) CALL read_error(5, 'gw_module')
         Gw_flag = 1 ! gwflow (native PRMS grounwater reservoir)
         IF ( Gw_module(:11)=='gw_topmodel' ) THEN

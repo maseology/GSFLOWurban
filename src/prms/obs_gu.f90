@@ -299,17 +299,11 @@
       EXTERNAL :: dattim                                                                        ! PJT - 2018Jan03 - Sub-daily precip inputs
       INTEGER, EXTERNAL ::  read_line                                                           ! PJT - 2018Jan03 - Sub-daily precip inputs
 ! Local Variables
-      INTEGER :: i, j                                                                   
+      INTEGER :: i
+      INTEGER :: j, CheckTime(6), CallReadLine                                                  ! PJT - 2018Jan03 - Sub-daily precip inputs
       DOUBLE PRECISION :: dtn                                                                   ! PJT - 2018Jan03 - Sub-daily precip inputs
-      INTEGER :: CheckTime(6)                                                                   ! PJT - 2018Jan03 - Sub-daily precip inputs
-      INTEGER :: CallReadLine
 ! **********************************************************************
       obsrun = 0
-      
-        CALL dattim('now', CheckTime)
-        if (CheckTime(3)==3) THEN 
-            testtempPrecip=0
-        ENDIF
 
       IF ( Nobs>0 ) THEN
         IF ( readvar(MODNAME, 'runoff')/=0 ) CALL read_error(9, 'runoff')
@@ -421,7 +415,7 @@
                 !Call for the duration of intensity interval
                 dtn = delnex()
 
-                !Does the next intensity value lie outside this computational day?
+                !Does the next intensity value lie outside this computational day? (i.e., is the sum of the found intervals longer than 24hrs)
                 IF (dtn + DBLE(CheckTime(4))+DBLE(CheckTime(5))/DBLE(60)+DBLE(CheckTime(6))/DBLE(3600)>24.0 - 1/DBLE(360000))  THEN  !1/DBLE(360000) is a quick and dirty check for round off error
                     !This value is from another computational day, EXIT the loop
                     EXIT

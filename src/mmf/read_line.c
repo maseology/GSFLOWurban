@@ -529,10 +529,18 @@ FILE_DATA * FILE_with_next_ts (void) {
    for (i = 1; i < num_data_files; i++) {
         fd_ptr = fd[i];  
       if (fd_ptr->time.year != 9999) {
+
+		  //! PJT - 2018Jan11 - Sub-daily precip inputs
+		  //Return the file with the earliest timestamp, the PRMS will sort out what is daily vs sub-daily internally
 		  if (fd_ptr->time.jt < cur_fd->time.jt) {
 			  cur_fd = fd_ptr;
 		  }
+		  //pjt
 
+		  //PJT - 2018Jan11 Commented out 
+		  //  We are altering the functionality of this function to return daily values even when sub-daily may be present
+		  //  Allows us to reduce the size of the sub-daily input files by not carrying climatevars we don't need on an hourly
+		  //  basis
 ///*
 //**   If two files have the same julian day, assume one is a storm file
 //**   and one is a daily file.  Throw out the daily value.
@@ -585,6 +593,8 @@ FILE_DATA * FILE_with_next_ts (void) {
 //         } else if (fd_ptr->time.jd < cur_fd->time.jd) {
 //            cur_fd = fd_ptr;
 //         }
+		  //PJT - 2018Jan11 Commented out 
+
       }
    }
 
