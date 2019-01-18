@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{7713A6FD-38B4-42A3-BE75-98C8729201EE}</ProjectGuid>
+    <RootNamespace>GSFUc</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>Intel C++ Compiler 18.0</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>Intel C++ Compiler 18.0</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetExt>.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <FloatingPointModel />
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>
+      </FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PrecompiledHeader />
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\mmf\defs.h" />
+    <ClInclude Include="..\src\mmf\globals.h" />
+    <ClInclude Include="..\src\mmf\mms.h" />
+    <ClInclude Include="..\src\mmf\protos.h" />
+    <ClInclude Include="..\src\mmf\structs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\mmf\alloc_space.c" />
+    <ClCompile Include="..\src\mmf\batch_run.c" />
+    <ClCompile Include="..\src\mmf\batch_run_functions.c" />
+    <ClCompile Include="..\src\mmf\build_lists.c" />
+    <ClCompile Include="..\src\mmf\call_modules.c" />
+    <ClCompile Include="..\src\mmf\call_setdims.c" />
+    <ClCompile Include="..\src\mmf\check_vars.c" />
+    <ClCompile Include="..\src\mmf\control_addr.c" />
+    <ClCompile Include="..\src\mmf\control_array.c" />
+    <ClCompile Include="..\src\mmf\control_var.c" />
+    <ClCompile Include="..\src\mmf\create_vstats.c" />
+    <ClCompile Include="..\src\mmf\decldim.c" />
+    <ClCompile Include="..\src\mmf\declparam.c" />
+    <ClCompile Include="..\src\mmf\declvar.c" />
+    <ClCompile Include="..\src\mmf\decl_control.c" />
+    <ClCompile Include="..\src\mmf\dim_addr.c" />
+    <ClCompile Include="..\src\mmf\free_vstats.c" />
+    <ClCompile Include="..\src\mmf\getdim.c" />
+    <ClCompile Include="..\src\mmf\getdimname.c" />
+    <ClCompile Include="..\src\mmf\getparam.c" />
+    <ClCompile Include="..\src\mmf\getvar.c" />
+    <ClCompile Include="..\src\mmf\get_elem_add.c" />
+    <ClCompile Include="..\src\mmf\get_times.c" />
+    <ClCompile Include="..\src\mmf\graph_single_run.c" />
+    <ClCompile Include="..\src\mmf\julconvert.c" />
+    <ClCompile Include="..\src\mmf\julday.c" />
+    <ClCompile Include="..\src\mmf\load_param.c" />
+    <ClCompile Include="..\src\mmf\mmf.c" />
+    <ClCompile Include="..\src\mmf\param_addr.c" />
+    <ClCompile Include="..\src\mmf\parse_args.c" />
+    <ClCompile Include="..\src\mmf\print_model_info.c" />
+    <ClCompile Include="..\src\mmf\print_params.c" />
+    <ClCompile Include="..\src\mmf\print_vars.c" />
+    <ClCompile Include="..\src\mmf\putvar.c" />
+    <ClCompile Include="..\src\mmf\readvar.c" />
+    <ClCompile Include="..\src\mmf\read_control.c" />
+    <ClCompile Include="..\src\mmf\read_datainfo.c" />
+    <ClCompile Include="..\src\mmf\read_line_gu.c" />
+    <ClCompile Include="..\src\mmf\read_params.c" />
+    <ClCompile Include="..\src\mmf\read_vars.c" />
+    <ClCompile Include="..\src\mmf\reset_dim.c" />
+    <ClCompile Include="..\src\mmf\save_params.c" />
+    <ClCompile Include="..\src\mmf\setup_cont_gu.c" />
+    <ClCompile Include="..\src\mmf\sort_dims.c" />
+    <ClCompile Include="..\src\mmf\sort_params.c" />
+    <ClCompile Include="..\src\mmf\sort_vars.c" />
+    <ClCompile Include="..\src\mmf\str_to_vals.c" />
+    <ClCompile Include="..\src\mmf\timing.c" />
+    <ClCompile Include="..\src\mmf\umalloc_etc.c" />
+    <ClCompile Include="..\src\mmf\var_addr.c" />
+    <ClCompile Include="..\src\mmf\write_vstats.c" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

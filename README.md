@@ -20,7 +20,7 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 ### Input instructions
 ...can be found [here](/doc/input_instructions.pdf).
 
-### Current (Beta) version 0.5
+### Current (Beta) version 0.6
 **Task list:**
 
  - [x] Write & compile code
@@ -51,6 +51,8 @@ gsflow/gsflow_modflow.f | gsflow_modflow_gu.f
 gsflow/gsflow_prms.f90 | gsflow_prms_gu.f90
 gsflow/gsflow_prms2mf.f90 | gsflow_prms2mf_gu.f90
 gsflow/gsflow_sum.f90 | gsflow_sum_gu.f90
+mmf/read_line.c | read_line_gu.c
+mmf/setup_cont.c | setup_cont_gu.c
 modflow/de47_NWT.f | de47_NWT_gu.f
 modflow/gwf2bas7_NWT.f | gwf2bas7_NWT_gu.f
 modflow/gwf2uzf1_NWT.f | gwf2uzf1_NWT_gu.f
@@ -60,6 +62,8 @@ prms/climateflow.f90 | climateflow_gu.f90
 prms/gwflow.f90 | gwflow_gu.f90
 prms/intcp.f90 | intcp_gu.f90
 prms/map_results.f90 | map_results_gu.f90
+prms/obs.f90 | obs_gu.f90
+prms/prms_time.f90 | prms_time_gu.f90
 prms/soilzone.f90 | soilzone_gu.f90
 prms/srunoff.f90 | srunoff_gu.f90
 prms/water_balance.f90 | water_balance_gu.f90
@@ -95,10 +99,13 @@ A special thanks to the [Lake Simcoe Region Conservation Authority](http://www.l
 
 ### Release info
 
+#### v0.6 January, 2019
+* added sub-daily precipitation input (thanks to @PJ-Thompson). *update to manual coming shortly*
+
 #### v0.5 January, 2019
 * changes to overall srunoff module: now urban hydrology mode can be combined with any srunoff module (i.e., srunoff_carea, srunoff_smidx, srunoff_scscn, srunoff_grnampt, etc.) 
 * changes to SCS-CN module to reflect manual methodology
-* include the PRMS-TOPMODEL option (this module has somehow been forgotten, oops **;)**
+* include the PRMS-TOPMODEL option (this module had somehow been forgotten, oops **;)**
 
 #### v0.4 December, 2018
 

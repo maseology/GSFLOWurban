@@ -261,8 +261,8 @@
       IF ( Sroff_flag==4 .OR. Model==99 ) THEN                                                                              ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
         !Must ensure each array reserves space for daily precip intervals when no sub-daily observations are provided       ! PJT - 2018Jan04
         iGreenAmptIntervals = 1
-        IF (NmaxPrecipObs>0) THEN
-            iGreenAmptIntervals =NmaxPrecipObs+1
+        IF ( NmaxPrecipObs>0 ) THEN
+            iGreenAmptIntervals = NmaxPrecipObs+1
         ENDIF
      
         ! Note, these arrays are allocated on an Nrain basis (i.e., the array is only as wide as the number of rainfall stations). This could be allocated on
@@ -707,7 +707,7 @@
       ENDIF
      
       !Calculate the Green&Ampt intensity variables for this Julian day                                                     ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables
-      IF ( Sroff_flag==4) THEN                                                                                              ! PJT - 2018Jan04
+      IF ( Sroff_flag==4 ) THEN                                                                                             ! PJT - 2018Jan04
          CALL compute_subdaily_intensities()                                                                                ! PJT - 2018Jan04
       ENDIF                                                                                                                 ! PJT - 2018Jan04 - Sub-daily Green&Ampt Process Variables                       
       
@@ -1609,7 +1609,7 @@
           GOTO 100
         ENDIF
           
-       IF ( Ga_ponded(Ihru)==0 ) THEN   ! IF ( Ga_ponded(Ihru).NE.0 ) THEN  - pjt 20190107  (attention MM, is this a bug?)
+        IF ( Ga_ponded(Ihru).NE.0 ) THEN
           ! check whether ponding will occur in sub-timestep (Cu)
           s1 = pt - rl - Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru))
           IF (s1 > 0.0) Ga_ponded(Ihru) = 1
