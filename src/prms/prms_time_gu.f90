@@ -16,6 +16,7 @@
       INTEGER FUNCTION prms_time()
       USE PRMS_SET_TIME
       USE PRMS_MODULE, ONLY: Process, Timestep, Starttime
+      USE PRMS_MODULE, ONLY: NmaxPrecipObs                                                    ! PJT - 2018Jan03 - Sub-daily precip inputs
       USE PRMS_BASIN, ONLY: Hemisphere, Basin_area_inv, FT2_PER_ACRE
       IMPLICIT NONE
 ! Functions
@@ -82,7 +83,12 @@
           IF ( Jday>79 .AND. Jday<265 ) Summer_flag = 0 ! Equinox
         ENDIF
 
-        dt = deltim()
+        !If sub-daily timesteps are not specified, ensure the DATA file is supplying daily climate data only                        ! PJT - 2018Jan03 - Sub-daily precip inputs
+        IF (NmaxPrecipObs==0) THEN                                                                                                  ! PJT - 2018Jan03 - Sub-daily precip inputs
+            dt =deltim()        !Original check included in code
+        ELSE                                                                                                                        ! PJT - 2018Jan03 - Sub-daily precip inputs
+            dt =24              !Regardless of the subdaily precip data, this timestep will completed for the entire day            ! PJT - 2018Jan03 - Sub-daily precip inputs
+        ENDIF
         Timestep_hours = SNGL( dt )
         Timestep_days = Timestep_hours/24.0
         Timestep_minutes = Timestep_hours*60.0

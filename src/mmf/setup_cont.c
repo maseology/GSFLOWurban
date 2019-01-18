@@ -58,6 +58,7 @@ void setup_cont (void) {
         decl_control_string ("gsflow_output_file", "gsflow.out");
         decl_control_string ("gsflow_csv_file", "gsflow.csv");
 		decl_control_string ("creator_email", "unknown");
+		decl_control_string("gw_module", "gwflow");							//PJT - 2019Jan14 - Add control string for PRMS groundwater module
 
 /*
         cval = (char *)umalloc (sizeof (long));

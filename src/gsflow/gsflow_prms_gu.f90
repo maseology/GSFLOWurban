@@ -15,6 +15,7 @@
       INTEGER, SAVE :: Model, Process_flag, Call_cascade, Ncascade, Ncascdgw
       INTEGER, SAVE :: Nhru, Nssr, Ngw, Nsub, Nhrucell, Nlake, Ngwcell, Nlake_hrus
       INTEGER, SAVE :: Ntemp, Nrain, Nsol, Nsegment, Ndepl, Nobs, Nevap, Ndeplval
+      INTEGER, SAVE :: NmaxPrecipObs                                                                                        ! PJT - 2018Jan03 - Sub-daily precip inputs      
       INTEGER, SAVE :: Ndscn, Ninfstor                                                                                      ! mm
       INTEGER, SAVE :: Starttime(6), Endtime(6)
       INTEGER, SAVE :: Start_year, Start_month, Start_day, End_year, End_month, End_day
@@ -777,7 +778,7 @@
       Soilzone_module = 'soilzone'
 
       IF ( PRMS_flag==1 ) THEN                                                                                              ! mm begin
-        Gw_module = ' '
+        !Gw_module = ' '           !PJT - 2019Jan14 - Add control string in setup_cont.c for the PRMS groundwater module, default value of 'gwflow' (EXE won't crash when gw_module is not specified in the control file)
         IF ( control_string(Gw_module, 'gw_module')/=0 ) CALL read_error(5, 'gw_module')
         Gw_flag = 1 ! gwflow (native PRMS grounwater reservoir)
         IF ( Gw_module(:11)=='gw_topmodel' ) THEN
@@ -882,6 +883,11 @@
 !      IF ( decldim('nratetbl', 0, MAXDIM, 'Number of rating-table data sets for lake elevations') &
 !     &     /=0 ) CALL read_error(7, 'nratetbl')
 
+! If the Green&Ampt Module is Active, allow for hourly precipitation inputs                                                                     ! PJT - 2018Jan03 - Sub-daily precip inputs
+     IF ( Srunoff_module(:15)=='srunoff_grnampt' ) THEN                                                                                         ! PJT - 2018Jan03 - Sub-daily precip inputs
+        IF ( decldim('nmaxprecipobs', 0, MAXDIM, 'Maximum number of sub-daily precip observations')/=0 ) CALL read_error(7, 'nmaxprecipobs')    ! PJT - 2018Jan03 - Sub-daily precip inputs
+     ENDIF                                                                                 
+      
 ! depletion curves
       IF ( decldim('ndepl', 1, MAXDIM, 'Number of snow-depletion curves')/=0 ) CALL read_error(7, 'ndelp')
       IF ( decldim('ndeplval', 11, MAXDIM, 'Number of values in all snow-depletion curves (set to ndepl*11)')/=0 ) &
@@ -932,6 +938,14 @@
 
       Nrain = getdim('nrain')
       IF ( Nrain==-1 ) CALL read_error(6, 'nrain')
+      
+      ! If the Green&Ampt Module is Active, call for the max number of observations                                 ! PJT - 2018Jan03 - Sub-daily precip inputs
+      IF ( Srunoff_module(:15)=='srunoff_grnampt' ) THEN                                                            ! PJT - 2018Jan03 - Sub-daily precip inputs
+        NmaxPrecipObs = getdim('nmaxprecipobs')                                                                     ! PJT - 2018Jan03 - Sub-daily precip inputs
+        IF ( NmaxPrecipObs==-1 ) CALL read_error(6, 'nmaxprecipobs')                                                ! PJT - 2018Jan03 - Sub-daily precip inputs
+      ELSE                                                                                                          ! PJT - 2018Jan03 - Sub-daily precip inputs
+         NmaxPrecipObs=0        !Still a dimension, set to zero to ensure there are no 'accidents'                  ! PJT - 2018Jan03 - Sub-daily precip inputs
+      ENDIF                                                                                                         ! PJT - 2018Jan03 - Sub-daily precip inputs      
 
       Nsol = getdim('nsol')
       IF ( Nsol==-1 ) CALL read_error(6, 'nsol')

@@ -917,7 +917,10 @@ C
      +                                             Iunitupw)
       END IF
       fkmax = 86400.0
-      fkmin = 1.0E-4
+      fkmin = 1.0E-4                  ! 2019Jan18 PJT - Here the minimum infiltration rate is hard coded to 0.0001 mm / day (or a max of 36.5mm/year).  In low infiltration areas 
+                                      !      this can effectively cut off recharge entirely.  Poses serious problems over hummocky areas in steady state runs.  Have experimented
+                                      !      will tightening this value, can be reduced to 1e-6 to 2e-6  (3-7mm/year) but can have implications for model stability.  It would be
+                                      !      constructive to allow the user to alter this value the UZF input file. 
       IF ( ITMUNI.EQ.1 ) THEN
         fkmax = fkmax/86400.0
         fkmin = fkmin/86400.0
