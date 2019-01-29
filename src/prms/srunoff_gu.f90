@@ -1606,7 +1606,7 @@
         IF ( Ga_ksat(Ihru) >= pn ) THEN
           ! rainfall intensity less than infiltrability
           Ga_f(Ihru) = 0.0
-          GOTO 100
+          GOTO 101
         ENDIF
           
         IF ( Ga_ponded(Ihru).NE.0 ) THEN
@@ -1647,12 +1647,12 @@
         
         ! save sub-interval state
         rl = rt
-        GOTO 100
+        GOTO 200
 101     Ga_ponded(Ihru) = 0
         rt = rl
         ft = pt - rl
         tp = 0.0
-100     pl = pt
+200     pl = pt
         tcum = tcum + ga_intvl(iRainSta,i)
         Ga_f(Ihru) = Ga_f(Ihru) + ft - fl
         fl = ft
@@ -2012,7 +2012,7 @@
 !     srunoff_restart - write or read srunoff restart file
 !***********************************************************************
       SUBROUTINE srunoff_restart(In_out)
-      USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit, Nlake, Dprst_flag, Cascade_flag, Call_cascade
+      USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit, Nlake, Dprst_flag, Cascade_flag, Call_cascade, Sroff_flag     ! mm
       USE PRMS_SRUNOFF
       IMPLICIT NONE
       ! Argument
@@ -2035,6 +2035,15 @@
         WRITE ( Restart_outunit ) Hru_sroffi
         WRITE ( Restart_outunit ) Hortonian_flow
         WRITE ( Restart_outunit ) Contrib_fraction
+        IF ( Sroff_flag==3 ) THEN                                                                                           ! mm begin
+          WRITE ( Restart_outunit ) Scs_cn_si
+          WRITE ( Restart_outunit ) Scs_cn_w1
+          WRITE ( Restart_outunit ) Scs_cn_w2
+        ENDIF
+        IF ( Sroff_flag==4 ) THEN
+          WRITE ( Restart_outunit ) Ga_f
+          WRITE ( Restart_outunit ) Ga_ponded            
+        ENDIF                                                                                                               ! mm end
         IF ( Call_cascade==1 ) WRITE ( Restart_outunit ) Strm_seg_in
         IF ( Cascade_flag==1 ) THEN
           WRITE ( Restart_outunit ) Upslope_hortonian
@@ -2066,6 +2075,15 @@
         READ ( Restart_inunit ) Hru_sroffi
         READ ( Restart_inunit ) Hortonian_flow
         READ ( Restart_inunit ) Contrib_fraction
+        IF ( Sroff_flag==3 ) THEN                                                                                           ! mm begin
+          READ ( Restart_inunit ) Scs_cn_si
+          READ ( Restart_inunit ) Scs_cn_w1
+          READ ( Restart_inunit ) Scs_cn_w2
+        ENDIF
+        IF ( Sroff_flag==4 ) THEN
+          READ ( Restart_inunit ) Ga_f
+          READ ( Restart_inunit ) Ga_ponded            
+        ENDIF                                                                                                               ! mm end        
         IF ( Call_cascade==1 ) READ ( Restart_inunit ) Strm_seg_in
         IF ( Cascade_flag==1 ) THEN
           READ ( Restart_inunit ) Upslope_hortonian
