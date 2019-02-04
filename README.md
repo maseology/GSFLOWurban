@@ -20,7 +20,7 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 ### Input instructions
 ...can be found [here](/doc/input_instructions.pdf).
 
-### Current (Beta) version 0.6
+### Current (Beta) version 0.6.1
 **Task list:**
 
  - [x] Write & compile code
@@ -98,6 +98,9 @@ A special thanks to the [Lake Simcoe Region Conservation Authority](http://www.l
 
 
 ### Release info
+
+#### v0.6.1 February, 2019
+* re-organized and tested sub-daily Green and Ampt code
 
 #### v0.6 January, 2019
 * added sub-daily precipitation input (thanks to @PJ-Thompson). *update to manual coming shortly*

@@ -20,8 +20,7 @@
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Dprst_stor_ante(:)
       REAL, SAVE :: Srp, Sri, Perv_frac, Imperv_frac, Hruarea_imperv, Hruarea
       DOUBLE PRECISION, SAVE :: Hruarea_dble
-      REAL, SAVE, ALLOCATABLE :: Ga_f(:), Scs_cn_si(:), Scs_cn_w1(:), Scs_cn_w2(:)                                          ! mm
-      INTEGER, SAVE, ALLOCATABLE :: Ga_ponded(:)                                                                            ! mm 
+      REAL, SAVE, ALLOCATABLE :: Scs_cn_si(:), Scs_cn_w1(:), Scs_cn_w2(:)                                                   ! mm
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Basin_sroff_down, Basin_sroff_upslope
       DOUBLE PRECISION, SAVE :: Basin_sroffi, Basin_sroffp
@@ -54,6 +53,12 @@
       REAL, SAVE, ALLOCATABLE :: Dprst_area_open(:), Dprst_area_clos(:)
       REAL, SAVE, ALLOCATABLE :: Dprst_insroff_hru(:), Dprst_evap_hru(:)
       REAL, SAVE, ALLOCATABLE :: Dprst_vol_frac(:), Dprst_vol_open_frac(:), Dprst_vol_clos_frac(:)
+!   User-defined type to hold Green & Ampt state variables                                                                  ! mm begin
+      TYPE GATYPE
+        REAL :: sm, F, Pt, pl, rt, rl, ft, fl, tp, ts, tcum 
+        INTEGER :: ponded, tflg
+      END TYPE
+      TYPE(GATYPE), SAVE, ALLOCATABLE :: GA(:)                                                                              ! mm end
       END MODULE PRMS_SRUNOFF
 
 !***********************************************************************
@@ -364,7 +369,7 @@
       ENDIF
       
       IF ( Sroff_flag==4 .OR. Model==99 ) THEN
-        ALLOCATE ( Ga_ksat(Nhru), Ga_sypsi(Nhru), Ga_f(Nhru), Ga_ponded(Nhru) )
+        ALLOCATE ( Ga_ksat(Nhru), Ga_sypsi(Nhru), GA(Nhru) )
         IF ( declparam(MODNAME, 'ga_ksat', 'nhru', 'real', &
      &       '0.1', '0.0', '100.0', &
      &       'Soil saturated conductivity', &
@@ -570,9 +575,7 @@
       ELSEIF ( Sroff_flag==4 ) THEN                                                                                         ! mm
 ! Green-Ampt parameters
         IF ( getparam(MODNAME, 'ga_ksat', Nhru, 'real', Ga_ksat)/=0 ) CALL read_error(2, 'ga_ksat')        
-        IF ( getparam(MODNAME, 'ga_sypsi', Nhru, 'real', Ga_sypsi)/=0 ) CALL read_error(2, 'ga_sypsi')     
-        Ga_f = 0.0
-        Ga_ponded = 0
+        IF ( getparam(MODNAME, 'ga_sypsi', Nhru, 'real', Ga_sypsi)/=0 ) CALL read_error(2, 'ga_sypsi')
       ENDIF
 
       num_hrus = 0
@@ -610,7 +613,9 @@
           tfc = Soil_moist_max(i)*Hru_frac_perv(i)
           ts = tfc + Sat_threshold(i)
           Scs_cn_w2(i) = (LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) - LOG(ts/(1.0 - 1.0/Scs_cn_si(i))-ts)) / (ts-tfc)
-          Scs_cn_w1(i) = LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) + Scs_cn_w2(i)*tfc                                          ! mm end
+          Scs_cn_w1(i) = LOG(tfc/(1.0 - siii/Scs_cn_si(i))-tfc) + Scs_cn_w2(i)*tfc                                          
+        ELSEIF ( Sroff_flag==4 ) THEN
+          CALL ga_reset(GA(i), Ga_sypsi(i))                                                                                 ! mm end
         ENDIF
       ENDDO
 !      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
@@ -1550,7 +1555,7 @@
 !     Updates cumulative infiltration (F), returns excess rainfall (R)    
 !***********************************************************************
       REAL FUNCTION compute_grnampt(Pptp)
-      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sypsi, Ga_f, Ga_ponded
+      USE PRMS_SRUNOFF, ONLY: Ihru, Ga_ksat, Ga_sypsi, GA
       USE PRMS_SRUNOFF, ONLY: ga_pprop, ga_intvl, ga_nint                                                                   ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
       USE PRMS_FLOWVARS, ONLY: Soil_moist_frac
       USE PRMS_BASIN, ONLY: CLOSEZERO
@@ -1562,8 +1567,8 @@
 ! Functions
       REAL, EXTERNAL :: fpsm
 ! Local Variables
-      REAL :: pt, pn, pl, rt, rl, ft, fl, tt, ts, tp, tcum, s1, sm
-      INTEGER :: i, iRainSta                                                                                                ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
+      REAL :: pn, tt, s1
+      INTEGER :: i, iRainSta                                                                                                 ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables
 !***********************************************************************
       
       ! Commented out - PJT 2018Jan05 - Variables are now declared at the module level and populated in the subroutine compute_subdaily_intensities below
@@ -1579,66 +1584,63 @@
       !! **** these should be gone once interval input is figured out ****
       
       IF ( Pptp <= 0.0 ) THEN
-        Ga_f(Ihru) = 0.0
-        Ga_ponded(Ihru) = 0
-        compute_grnampt = 0.0
+        s1 = 1.0-Soil_moist_frac(Ihru)
+        IF ( s1.LT.0.0 ) s1=0.0001
+        CALL ga_reset(GA(i), s1*Ga_sypsi(Ihru))
         GOTO 999
       ENDIF
       
       !Gets the ID of the rainfall station associated with this HRU  
       !(could default to 1 if Hru_psta is not declared - discuss the use of other precip interpolation packages with MM)
       iRainSta=Hru_psta(Ihru)
-      
-      pt = Ga_f(Ihru)
-      pl = 0.0
-      rt = 0.0
-      rl = 0.0
-      ft = 0.0
-      fl = 0.0
-      tp = 0.0
-      ts = 0.0
-      tcum = 0.0
-      sm = (1.0-Soil_moist_frac(Ihru))*Ga_sypsi(Ihru) ! implies no moisture redistribution within the daily timestep
       DO i = 1, ga_nint(iRainSta)
         pn = Pptp*ga_pprop(iRainSta,i)/ga_intvl(iRainSta,i)  ! precip intensity occurring during the current sub-interval (inches/day)
-        pt = pt + Pptp*ga_pprop(iRainSta,i)
+        IF ( pn>0.0 ) GA(Ihru)%tflg = 1 ! flag used to identify the beginning of an event
+        GA(Ihru)%Pt = GA(Ihru)%Pt + Pptp*ga_pprop(iRainSta,i) ! inches
+        !write (*,'(3f10.4)') (ga_intvl(iRainSta,i) + GA(Ihru)%tcum)*24, pn*0.0254/24.0,GA(Ihru)%Pt*0.0254 ! column 1,2,3
         
         IF ( Ga_ksat(Ihru) >= pn ) THEN
-          ! rainfall intensity less than infiltrability
-          Ga_f(Ihru) = 0.0
+          ! rainfall intensity less than infiltrability (inches/day)
+          GA(Ihru)%F = 0.0
+          !write (*,*) "I<K" ! column 4 (1of2 parts)
           GOTO 101
         ENDIF
           
-        IF ( Ga_ponded(Ihru).NE.0 ) THEN
+        IF ( GA(Ihru)%ponded == 0 ) THEN
           ! check whether ponding will occur in sub-timestep (Cu)
-          s1 = pt - rl - Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru))
-          IF (s1 > 0.0) Ga_ponded(Ihru) = 1
+          s1 = GA(Ihru)%Pt - GA(Ihru)%rl - Ga_ksat(Ihru) * GA(Ihru)%sm / (pn - Ga_ksat(Ihru))
+          IF (s1 > 0.0) GA(Ihru)%ponded = 1
+          !write (*,'(f10.4)') s1*.0254 ! column 4 (2of2 parts)
         ENDIF
         
-        IF (Ga_ponded(Ihru) == 1) THEN ! hru is ponded
-          IF ( tp == 0.0 ) THEN
-            s1 = (Ga_ksat(Ihru) * sm / (pn - Ga_ksat(Ihru)) - pl + pl) / pn
+        IF ( GA(Ihru)%ponded == 1 ) THEN ! hru is ponded
+          IF ( GA(Ihru)%tp == 0.0 ) THEN
+            s1 = (Ga_ksat(Ihru) * GA(Ihru)%sm / (pn - Ga_ksat(Ihru)) - GA(Ihru)%pl + GA(Ihru)%rl) / pn
             IF ( s1 < 0.0 ) THEN ! tp: ponding time
-              tp = tcum
+              GA(Ihru)%tp = GA(Ihru)%tcum
             ELSE
-              tp = s1 + tcum
+              GA(Ihru)%tp = s1 + GA(Ihru)%tcum
             ENDIF         
-            s1 = pl + (tp - tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
-            ts = sm / Ga_ksat(Ihru) * ((s1 - rl) / sm - LOG(1.0 + (s1 - rl) / sm)) ! ts: time scale shift
+            s1 = GA(Ihru)%pl + (GA(Ihru)%tp - GA(Ihru)%tcum) * pn ! F0: cumulative infiltration at the pinding time ~ P(tp)
+            GA(Ihru)%ts = GA(Ihru)%sm / Ga_ksat(Ihru) * ((s1 - GA(Ihru)%rl) / GA(Ihru)%sm - LOG(1.0 + (s1 - GA(Ihru)%rl) / GA(Ihru)%sm)) ! ts: time scale shift
+            !write (*,'(3f10.4)') s1*.0254, GA(Ihru)%tp*24, GA(Ihru)%ts*24 ! column 5,6,7
           ENDIF
-          tt = ga_intvl(iRainSta,i) + tcum - tp + ts
-          s1 = Ga_ksat(Ihru) * tt / sm ! KT/SM
+          tt = ga_intvl(iRainSta,i) + GA(Ihru)%tcum - GA(Ihru)%tp + GA(Ihru)%ts
+          s1 = Ga_ksat(Ihru) * tt / GA(Ihru)%sm ! KT/SM
+          !write (*,'(2f10.5)') tt*24, s1 ! column 8,9
           s1 = fpsm(s1) ! F/SM
-          ft = s1 * sm ! F(t)
-          s1 = pt - ft
-          IF ( s1 <= rl ) THEN
-            rt = rl
+          !write (*,'(f10.4)') s1 ! column 10
+          GA(Ihru)%ft = s1 * GA(Ihru)%sm ! F(t)
+          s1 = GA(Ihru)%Pt - GA(Ihru)%ft
+          IF ( s1 <= GA(Ihru)%rl ) THEN
+            GA(Ihru)%rt = GA(Ihru)%rl
           ELSE
-            rt = s1
+            GA(Ihru)%rt = s1
           ENDIF
+          !write (*,'(2f10.5)') GA(Ihru)%ft*.0254, GA(Ihru)%rt*.0254 ! column 11,12 (1of2 parts)
           
           ! check if ponding will cease this timestep (Cp)
-          s1 = pt - ft - rl
+          s1 = GA(Ihru)%Pt - GA(Ihru)%ft - GA(Ihru)%rl
           IF ( s1 < 0.0 ) GOTO 101
         ELSE
           ! hru is not ponded
@@ -1646,22 +1648,47 @@
         ENDIF
         
         ! save sub-interval state
-        rl = rt
+        GA(Ihru)%rl = GA(Ihru)%rt
         GOTO 200
-101     Ga_ponded(Ihru) = 0
-        rt = rl
-        ft = pt - rl
-        tp = 0.0
-200     pl = pt
-        tcum = tcum + ga_intvl(iRainSta,i)
-        Ga_f(Ihru) = Ga_f(Ihru) + ft - fl
-        fl = ft
+101     GA(Ihru)%ponded = 0
+        GA(Ihru)%rt = GA(Ihru)%rl
+        GA(Ihru)%ft = GA(Ihru)%Pt - GA(Ihru)%rl
+        GA(Ihru)%tp = 0.0
+        !write (*,'(2f10.5)') GA(Ihru)%ft*.0254, GA(Ihru)%rt*.0254 ! column 11,12 (2of2 parts)
+200     GA(Ihru)%pl = GA(Ihru)%Pt
+        IF ( GA(Ihru)%tflg.NE.0 ) GA(Ihru)%tcum = GA(Ihru)%tcum + ga_intvl(iRainSta,i) ! days
+        GA(Ihru)%F = GA(Ihru)%F + GA(Ihru)%ft - GA(Ihru)%fl
+        GA(Ihru)%fl = GA(Ihru)%ft
       ENDDO
 
-      compute_grnampt = rt ! rainfall excess      
+      compute_grnampt = GA(Ihru)%rt ! rainfall excess (inches)
   999 RETURN
       END FUNCTION compute_grnampt
-      
+
+!***********************************************************************
+!     Used to reset GA state
+!***********************************************************************    
+      SUBROUTINE ga_reset(GAin, SMin)
+      USE PRMS_SRUNOFF, ONLY: GATYPE
+! Arguments
+      TYPE(GATYPE), INTENT(INOUT) :: GAin
+      REAL, INTENT(IN) :: SMin
+!***********************************************************************
+      GAin%F = 0.0
+      GAin%Pt = 0.0
+      GAin%pl = 0.0
+      GAin%rt = 0.0
+      GAin%rl = 0.0
+      GAin%ft = 0.0
+      GAin%fl = 0.0
+      GAin%tp = 0.0
+      GAin%ts = 0.0
+      GAin%tcum = 0.0
+      GAin%ponded = 0
+      GAin%tflg = 0
+      GAin%sm = SMin ! implies no moisture redistribution throughout storm event
+      END SUBROUTINE ga_reset
+    
 !***********************************************************************
 !     Explicit function used to solve for F/SM in Chu (1978), Figure 1
 !***********************************************************************
@@ -1686,7 +1713,7 @@
       USE PRMS_MODULE, ONLY: Nrain
       USE PRMS_OBS, ONLY: Precip, SubDailyObsTimes, SubDailyPrecip, NumPrecipObs
 ! Local Variables
-      REAL :: TotalRainHours      
+      REAL :: s1      
       INTEGER :: i, j
 !***********************************************************************
 
@@ -1701,40 +1728,50 @@
       ga_nint=0
       
       !For each precip station
-      DO i = 1, Nrain
-          
-          !Are there sub-daily values?
-          IF (NumPrecipObs>0) THEN
-              !Sub-daily observations available, use to populate the Green&Ampt intensities
-              
-              !Sum the non-zero time intervals (calculate the span of the day with rainfall)
-              TotalRainHours=0
-              DO j = 1, NumPrecipObs-1
-                  IF (SubDailyPrecip(i,j)>0) THEN
-                     TotalRainHours=TotalRainHours+SubDailyObsTimes(j+1)-SubDailyObsTimes(j)
-                  ENDIF
-              ENDDO
+      DO i = 1, Nrain          
+        !Are there sub-daily values?
+        IF (NumPrecipObs>0) THEN
+          !Sub-daily observations available, use to populate the Green&Ampt intensities
+          !Note SubDailyObsTimes() are given in hours
+            
+          !Check for a period of no rain prior to event, if greater than 1 minute
+          IF ( SubDailyObsTimes(1).GE.(0.0166) ) THEN
+            ga_nint(i)=ga_nint(i)+1
+            ga_intvl(i,ga_nint(i))=SubDailyObsTimes(1)/24.0
+            ga_pprop(i,ga_nint(i))=0.0
+          ENDIF            
 
-              !For each non-zero observation interval, populate intervals & intensities
-              DO j = 1, NumPrecipObs-1
-                  IF (SubDailyPrecip(i,j)>0) THEN
-                      !Increment Counter
-                      ga_nint(i)=ga_nint(i)+1
-                      !Set Interval ratio
-                      ga_intvl(i,ga_nint(i))=(SubDailyObsTimes(j+1)-SubDailyObsTimes(j))/TotalRainHours
-                      !Set precip ratio
-                      ga_pprop(i,ga_nint(i))=SubDailyPrecip(i,j)/Precip(i)
-     
-                  ENDIF
-              ENDDO
+          !For each non-zero observation interval, populate intervals & intensities
+          DO j = 1, NumPrecipObs-1
+            !IF (SubDailyPrecip(i,j)>0) THEN
+            !Increment Counter
+            ga_nint(i)=ga_nint(i)+1
+            !Set Interval ratio
+            ga_intvl(i,ga_nint(i))=(SubDailyObsTimes(j+1)-SubDailyObsTimes(j))/24.0
+            !Set precip ratio
+            ga_pprop(i,ga_nint(i))=SubDailyPrecip(i,j)/Precip(i)
+            !ENDIF
+          ENDDO
           
-          ELSE
-              !Daily obs only (assuming steady 24hr rainfall)
-              ga_intvl(Nrain,1) = 1.0
-              ga_pprop(Nrain,1) = 1.0
-              ga_nint(Nrain)=1
+          !Check for complete data record
+          s1=0.0
+          DO j = 1, ga_nint(i)
+            s1 = s1 + ga_intvl(i,j)
+          ENDDO
+          IF ( s1.GT.1 ) THEN
+            WRITE (*,*) "Subdaily input error: precipitaion durations exceed a day" ! this should never happen
+          ELSEIF ( s1.LT.(0.9999) ) THEN
+            ga_nint(i)=ga_nint(i)+1
+            ga_intvl(i,ga_nint(i))=1.0-s1
+            ga_pprop(i,ga_nint(i))=0.0
           ENDIF
-
+          
+        ELSE
+          !Daily obs only (assuming steady 24hr rainfall)
+          ga_intvl(Nrain,1) = 1.0
+          ga_pprop(Nrain,1) = 1.0
+          ga_nint(Nrain)=1
+        ENDIF
       ENDDO
                                                                                                                             ! PJT - 2018Jan05
       END SUBROUTINE                                                                                                        ! PJT - 2018Jan05 - Sub-daily Green&Ampt Process Variables (End)
@@ -2040,10 +2077,7 @@
           WRITE ( Restart_outunit ) Scs_cn_w1
           WRITE ( Restart_outunit ) Scs_cn_w2
         ENDIF
-        IF ( Sroff_flag==4 ) THEN
-          WRITE ( Restart_outunit ) Ga_f
-          WRITE ( Restart_outunit ) Ga_ponded            
-        ENDIF                                                                                                               ! mm end
+        IF ( Sroff_flag==4 ) WRITE ( Restart_outunit ) GA                                                                   ! mm end
         IF ( Call_cascade==1 ) WRITE ( Restart_outunit ) Strm_seg_in
         IF ( Cascade_flag==1 ) THEN
           WRITE ( Restart_outunit ) Upslope_hortonian
@@ -2080,10 +2114,7 @@
           READ ( Restart_inunit ) Scs_cn_w1
           READ ( Restart_inunit ) Scs_cn_w2
         ENDIF
-        IF ( Sroff_flag==4 ) THEN
-          READ ( Restart_inunit ) Ga_f
-          READ ( Restart_inunit ) Ga_ponded            
-        ENDIF                                                                                                               ! mm end        
+        IF ( Sroff_flag==4 ) READ ( Restart_inunit ) GA                                                                     ! mm end        
         IF ( Call_cascade==1 ) READ ( Restart_inunit ) Strm_seg_in
         IF ( Cascade_flag==1 ) THEN
           READ ( Restart_inunit ) Upslope_hortonian
