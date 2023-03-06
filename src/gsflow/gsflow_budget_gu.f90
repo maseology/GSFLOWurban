@@ -4,16 +4,18 @@
 !***********************************************************************
       MODULE GSFBUDGET
 !   Local Variables
+      character(len=*), parameter :: MODDESC = 'GSFLOW Output Budget Summary'
+      character(len=13), parameter :: MODNAME = 'gsflow_budget'
+      character(len=*), parameter :: Version_gsflow_budget = '2021-09-28'
       INTEGER, SAVE :: Nreach
       INTEGER, SAVE :: Vbnm_index(14)
       DOUBLE PRECISION, SAVE :: Gw_bnd_in, Gw_bnd_out, Well_in, Well_out, Basin_actetgw, Basin_fluxchange
       REAL, SAVE, ALLOCATABLE :: Fluxchange(:)
-      CHARACTER(LEN=13), SAVE :: MODNAME
 !   Declared Variables
       DOUBLE PRECISION, SAVE :: Total_pump, Total_pump_cfs, StreamExchng2Sat_Q, Stream2Unsat_Q, Sat_S
       DOUBLE PRECISION, SAVE :: Stream_inflow, Basin_gw2sm, NetBoundaryFlow2Sat_Q
       DOUBLE PRECISION, SAVE :: Unsat_S, Sat_dS, LakeExchng2Sat_Q, Lake2Unsat_Q, Basin_szreject
-      REAL, SAVE, ALLOCATABLE :: Reach_cfs(:), Reach_wse(:), Streamflow_sfr(:)
+      REAL, SAVE, ALLOCATABLE :: Reach_cfs(:), Reach_wse(:), Streamflow_sfr(:), Seepage_reach_sfr(:), Seepage_segment_sfr(:)
       REAL, SAVE, ALLOCATABLE :: Gw2sm(:), Actet_gw(:), Actet_tot_gwsz(:), Gw_rejected(:)
 !      REAL, SAVE, ALLOCATABLE :: Uzf_infil_map(:), Sat_recharge(:), Mfoutflow_to_gvr(:)
       DOUBLE PRECISION, SAVE, ALLOCATABLE :: Strm_seg_gwin(:), Strm_seg_us(:), Strm_seg_ds(:)                               ! mm
@@ -23,7 +25,8 @@
 !     Budget module to convert PRMS & MODFLOW states for use by GSFLOW
 !     ******************************************************************
       INTEGER FUNCTION gsflow_budget()
-      USE PRMS_MODULE, ONLY: Process, Save_vars_to_file, Init_vars_from_file
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, OFF, SAVE_INIT, READ_INIT, RUN, DECL, INIT, CLEAN
+      USE PRMS_MODULE, ONLY: Process_flag, Save_vars_to_file, Init_vars_from_file
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: gsfbuddecl, gsfbudinit, gsfbudrun
@@ -31,15 +34,15 @@
 !***********************************************************************
       gsflow_budget = 0
 
-      IF ( Process(:3)=='run' ) THEN
+      IF ( Process_flag==RUN ) THEN
         gsflow_budget = gsfbudrun()
-      ELSEIF ( Process(:4)=='decl' ) THEN
+      ELSEIF ( Process_flag==DECL ) THEN
         gsflow_budget = gsfbuddecl()
-      ELSEIF ( Process(:4)=='init' ) THEN
-        IF ( Init_vars_from_file==1 ) CALL gsflow_budget_restart(1)
+      ELSEIF ( Process_flag==INIT ) THEN
+        IF ( Init_vars_from_file>OFF ) CALL gsflow_budget_restart(READ_INIT)
         gsflow_budget = gsfbudinit()
-      ELSEIF ( Process(:5)=='clean' ) THEN
-        IF ( Save_vars_to_file==1 ) CALL gsflow_budget_restart(0)
+      ELSEIF ( Process_flag==CLEAN ) THEN
+        IF ( Save_vars_to_file==ACTIVE ) CALL gsflow_budget_restart(SAVE_INIT)
       ENDIF
 
       END FUNCTION gsflow_budget
@@ -55,14 +58,10 @@
       IMPLICIT NONE
       INTEGER, EXTERNAL :: declvar, getdim
       EXTERNAL :: print_module, read_error
-! Save Variables
-      CHARACTER(LEN=80), SAVE :: Version_gsflow_budget
 !***********************************************************************
       gsfbuddecl = 0
 
-      Version_gsflow_budget = 'gsflow_budget.f90 2018-01-23 16:34:00Z'
-      CALL print_module(Version_gsflow_budget, 'GSFLOW Output Budget Summary', 90)
-      MODNAME = 'gsflow_budget'
+      CALL print_module(MODDESC, MODNAME, Version_gsflow_budget)
 
       Nreach = getdim('nreach')
       IF ( Nreach==-1 ) CALL read_error(6, 'nreach')
@@ -159,6 +158,16 @@
      &     'Streamflow as computed by SFR for each segment', &
      &     'cfs', Streamflow_sfr)/=0 ) CALL read_error(3, 'streamflow_sfr')
 
+      ALLOCATE (Seepage_reach_sfr(Nreach))
+      IF ( declvar(MODNAME, 'seepage_reach_sfr', 'nreach', Nreach, 'real', &
+     &     'Seepage as computed by SFR for each reach', &
+     &     'cfs', Seepage_reach_sfr)/=0 ) CALL read_error(3, 'seepage_reach_sfr')
+
+      ALLOCATE (Seepage_segment_sfr(Nreach))
+      IF ( declvar(MODNAME, 'seepage_segment_sfr', 'nsegment', Nsegment, 'real', &
+     &     'Seepage as computed by SFR for each segment', &
+     &     'cfs', Seepage_segment_sfr)/=0 ) CALL read_error(3, 'seepage_segment_sfr')
+
       ALLOCATE ( Strm_seg_gwin(Nsegment) )                                                                                  ! mm begin
       IF ( declvar(MODNAME, 'strm_seg_gwin', 'nsegment', Nsegment, 'double', &
      &     'Groundwater discharge into each stream segment', &
@@ -173,6 +182,7 @@
       IF ( declvar(MODNAME, 'strm_seg_ds', 'nsegment', Nsegment, 'double', &
      &     'Total discharge leaving each stream segment', &
      &     'cfs', Strm_seg_ds)/=0 ) CALL read_error(3, 'strm_seg_ds')                                                       ! mm end
+
 
       ALLOCATE ( Gw_rejected(Nhru) )
       IF ( declvar(MODNAME, 'gw_rejected', 'nhru', Nhru, 'real', &
@@ -200,6 +210,7 @@
 !     gsfbudinit - Initialize GSFBUDGET module - get parameter values
 !***********************************************************************
       INTEGER FUNCTION gsfbudinit()
+      USE PRMS_CONSTANTS, ONLY: ERROR_dim, OFF
       USE GSFBUDGET
       USE PRMS_MODULE, ONLY: Init_vars_from_file, Nhru
       USE GWFSFRMODULE, ONLY: NSTRM
@@ -212,14 +223,12 @@
 
       IF ( Nreach/=NSTRM ) THEN
         PRINT *, 'ERROR, nreach must equal to NSTRM', Nreach, NSTRM
-        STOP
+        ERROR STOP ERROR_dim
       ENDIF
 
-      IF ( Init_vars_from_file==0 ) THEN
-        Reach_cfs = 0.0 ! dimension NSTRM
-        Reach_wse = 0.0 ! dimension NSTRM
-        Total_pump = 0.0D0
-        Total_pump_cfs = 0.0D0
+      Reach_cfs = 0.0 ! dimension NSTRM
+      Reach_wse = 0.0 ! dimension NSTRM
+      IF ( Init_vars_from_file==OFF ) THEN
         Unsat_S = UZTSRAT(6)
         IF ( IUNIT(1)>0 ) CALL MODFLOW_GET_STORAGE_BCF()
         IF ( IUNIT(23)>0 ) CALL MODFLOW_GET_STORAGE_LPF()
@@ -231,25 +240,23 @@
         Lake2Unsat_Q = 0.0D0
         Stream_inflow = 0.0D0
         Basin_gw2sm = 0.0D0
-!        Uzf_infil_map = 0.0 ! dimension nhru
-!        Sat_recharge = 0.0 ! dimension nhru
-!        Mfoutflow_to_gvr = 0.0 ! dimension nhru
-        Gw2sm = 0.0 ! dimension nhru
-        Actet_gw = 0.0 ! dimension nhru
-        Actet_tot_gwsz = 0.0 ! dimension nhru
-        Streamflow_sfr = 0.0 ! dimension nsegment
-        Strm_seg_gwin = 0.0D0                                                                                               ! mm
-        Strm_seg_us = 0.0D0                                                                                                 ! mm
-        Strm_seg_ds = 0.0D0                                                                                                 ! mm
+        Total_pump = 0.0D0
+        Total_pump_cfs = 0.0D0
       ENDIF
+!      Uzf_infil_map = 0.0 ! dimension nhru
+!      Sat_recharge = 0.0 ! dimension nhru
+!      Mfoutflow_to_gvr = 0.0 ! dimension nhru
+      Gw2sm = 0.0 ! dimension nhru
+      Actet_tot_gwsz = 0.0 ! dimension nhru
+
+      Strm_seg_gwin = 0.0D0                                                                                                 ! mm
+      Strm_seg_us = 0.0D0                                                                                                   ! mm
+      Strm_seg_ds = 0.0D0                                                                                                   ! mm
 
 !  Set the volume budget indicies to -1 anytime "init" is called.
 !  This will make "run" figure out the vbnm order.
       Vbnm_index = -1
       ALLOCATE ( Fluxchange(Nhru) )
-      Fluxchange = 0.0
-      Basin_fluxchange = 0.0D0
-      Basin_szreject = 0.0D0
       Gw_rejected = 0.0
 
       END FUNCTION gsfbudinit
@@ -259,27 +266,26 @@
 ! adjust gravity flow storage with last gw2sm and gw_rejected
 !***********************************************************************
       INTEGER FUNCTION gsfbudrun()
+      USE PRMS_CONSTANTS, ONLY: DNEARZERO, CLOSEZERO, ACTIVE
       USE GSFBUDGET
       USE GSFMODFLOW, ONLY: Mfq2inch_conv, Mfl2_to_acre, & !, Cellarea, &
-     &    Mfvol2inch_conv, Mfl3t_to_cfs, Mfl_to_inch, Gwc_col, Gwc_row, Have_lakes
+     &    Mfvol2inch_conv, Mfl3t_to_cfs, Mfl_to_inch, Gwc_col, Gwc_row
 !      USE GLOBAL, ONLY: IUNIT
 !Warning, modifies Gw_rejected_grav
       USE GSFPRMS2MF, ONLY: Excess, Gw_rejected_grav
-      USE PRMS_MODULE, ONLY: Nhrucell, Gvr_cell_id !, Gvr_cell_pct, Print_debug
+      USE PRMS_MODULE, ONLY: Nhrucell, Gvr_cell_id, Have_lakes !, Gvr_cell_pct, Print_debug
       USE GWFBASMODULE, ONLY: VBVL, DELT
-      USE GWFSFRMODULE, ONLY: NSS                                               !mm
+      USE GWFSFRMODULE, ONLY: NSS                                                                              !mm
       USE GWFUZFMODULE, ONLY: SEEPOUT, UZFETOUT, UZTSRAT, REJ_INF, GWET !, UZOLSFLX, UZFLWT
       USE GWFLAKMODULE, ONLY: EVAP, SURFA
 !Warning, modifies Basin_gwflow_cfs, Basin_cfs, Basin_cms, Basin_stflow,
 !                  Basin_ssflow_cfs, Basin_sroff_cfs
       USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, Hru_type, Active_area, &
-     &    Basin_area_inv, Hru_area, NEARZERO, Lake_hru_id, Lake_area, CLOSEZERO
-      USE PRMS_FLOWVARS, ONLY: Basin_ssflow, Basin_lakeevap, Hru_actet, &
+     &    Basin_area_inv, Hru_area, Lake_hru_id, Lake_area
+      USE PRMS_FLOWVARS, ONLY: Basin_ssflow, Basin_lakeevap, Hru_actet, Basin_sroff, &
      &    Basin_actet, Basin_ssstor, Ssres_stor, Slow_stor, Basin_ssflow_cfs, Basin_sroff_cfs, Basin_gwflow_cfs
       USE PRMS_SET_TIME, ONLY: Cfs_conv
-!Warning, modifies Basin_soil_moist, Basin_ssstor
-      USE PRMS_SRUNOFF, ONLY: Basin_sroff
-!Warning, modifies Gw2sm_grav
+!Warning, modifies Basin_ssstor, and Gw2sm_grav
       USE PRMS_SOILZONE, ONLY: Pref_flow_stor, Gravity_stor_res, Hrucheck, Gvr_hru_id, &
      &    Basin_slstor, Gw2sm_grav, Gvr_hru_pct_adjusted
       IMPLICIT NONE
@@ -311,13 +317,16 @@
 !        Mfoutflow_to_gvr(i) = 0.0
         Fluxchange(i) = 0.0
       ENDDO
-      Streamflow_sfr = 0.0
+      Streamflow_sfr = 0.0 ! dimension nsegment
+      Seepage_reach_sfr = 0.0 ! dimension nreach
+      Seepage_segment_sfr = 0.0 ! dimension nsegment
 
       DO i = 1, NSS                                                                                                         ! mm begin
         Strm_seg_gwin(i) = 0.0D0
         Strm_seg_us(i) = 0.0D0
         Strm_seg_ds(i) = 0.0D0
       ENDDO                                                                                                                 ! mm end
+
 
       DO i = 1, Nhrucell
         ihru = Gvr_hru_id(i)
@@ -365,16 +374,16 @@
       DO ii = 1, Active_hrus
         i = Hru_route_order(ii)
         harea = Hru_area(i)
-        IF ( Have_lakes==1 ) THEN
+        IF ( Have_lakes==ACTIVE ) THEN
 !-----------------------------------------------------------------------
 ! Get actual et from lakes
 !-----------------------------------------------------------------------
           IF ( Hru_type(i)==2 ) THEN
             lake = Lake_hru_id(i)
             !EVAP in mfl3/dt   SURFA in MFL2/dt
-            IF ( SURFA(lake)>NEARZERO ) THEN
-              inches_on_lake = EVAP(lake)*DELT/SURFA(lake)*Mfl_to_inch                            !RGN 5/23/15 added *DELT for time units other than days.         
-              Hru_actet(i) = inches_on_lake*SURFA(lake)*Mfl2_to_acre/Lake_area(lake)
+            IF ( SURFA(lake)>DNEARZERO ) THEN
+              inches_on_lake = SNGL(EVAP(lake))*DELT/SNGL(SURFA(lake))*Mfl_to_inch                         !RGN 5/23/15 added *DELT for time units other than days.
+              Hru_actet(i) = inches_on_lake*SNGL(SURFA(lake)*Mfl2_to_acre/Lake_area(lake))
             ELSE
               Hru_actet(i) = 0.0
             ENDIF
@@ -413,7 +422,7 @@
       !IF ( IUNIT(62)>0 ) CALL MODFLOW_GET_STORAGE_UPW()
 
       IF ( Vbnm_index(1)==-1 ) CALL MODFLOW_VB_DECODE(Vbnm_index)
-      Sat_dS = VBVL(4,Vbnm_index(12)) - VBVL(3,Vbnm_index(12))
+      Sat_dS = (VBVL(4,Vbnm_index(12)) - VBVL(3,Vbnm_index(12)))*DELT
       Sat_S = Sat_S + Sat_dS
 
       Unsat_S = UZTSRAT(6)
@@ -629,55 +638,49 @@
 !***********************************************************************
       SUBROUTINE MODFLOW_GET_STORAGE_UPW()
       USE GSFBUDGET, ONLY: Sat_S
-      USE PRMS_BASIN, ONLY: NEARZERO
-      USE GLOBAL, ONLY: NCOL, NROW, NLAY, IBOUND, BOTM, HNEW, LBOTM
-      USE GWFBASMODULE, ONLY: DELT, HDRY
-      USE GWFUPWMODULE, ONLY: LAYTYPUPW, SC1, SC2UPW
+      USE PRMS_CONSTANTS, ONLY: NEARZERO
+      USE GLOBAL, ONLY: NCOL, NROW, NLAY, IBOUND, BOTM, HNEW, LBOTM, HOLD
+      USE GWFBASMODULE, ONLY: DELT
+      USE GWFUPWMODULE, ONLY: SC1, SC2UPW, Sn
+      USE GWFNWTMODULE,ONLY: Icell
       IMPLICIT NONE
 ! Functions
       INTRINSIC ABS
 ! Local Variables
-      INTEGER :: i, j, k, kt, lc
-      DOUBLE PRECISION :: tled, top, bot, rho, storage, head
+      INTEGER :: i, j, k, kt, IJ
+      DOUBLE PRECISION :: tled, rho1, rho2
+      DOUBLE PRECISION :: ZERO, ONE, HSING, HLD, tp, bt, thick
+      DOUBLE PRECISION :: strg
 !***********************************************************************
       tled = 1.0D0/DELT
       Sat_S = 0.0D0
 
-!5------LOOP THROUGH EVERY CELL IN THE GRID.
-      kt = 0
-      DO k = 1, NLAY
-        lc = LAYTYPUPW(k)
-        IF ( lc/=0 ) kt = kt + 1
-        DO j = 1, NCOL
-          DO i = 1, NROW
-
-!6------SKIP NO-FLOW AND CONSTANT-HEAD CELLS.
-            IF ( IBOUND(j, i, k)>0 .AND. ABS(HNEW(j, i, k)-HDRY)>NEARZERO ) THEN
-              head = HNEW(j, i, k)
-              top = BOTM(j, i, LBOTM(k)-1)
-              bot = BOTM(j, i, LBOTM(k))
-
-!7-----CHECK LAYER TYPE TO SEE IF ONE STORAGE CAPACITY OR TWO.
-              IF ( lc/=0 ) THEN
-!7A----TWO STORAGE CAPACITIES.
-!  markstro - always use specific yield
-                rho = SC2UPW(j, i, kt)
-              ELSE
-!7A----ONE STORAGE CAPACITY.
-                rho = SC1(j, i, k)
-              ENDIF
-              IF ( head>=top ) THEN
-                storage = rho*(top-bot)*tled
-              ELSE
-                storage = rho*(head-bot)*tled
-              ENDIF
-              Sat_S = Sat_S + storage
-            ENDIF
-
-          ENDDO
-        ENDDO
-      ENDDO
-
+      ZERO=0.0D0
+      ONE=1.0D0
+      TLED=ONE/DBLE(DELT)
+!C
+!C1------LOOP THROUGH EVERY CELL IN THE GRID.
+      KT=0
+      DO 300 K=1,NLAY
+      DO 300 I=1,NROW
+      DO 300 J=1,NCOL
+!C
+!C2------SKIP NO-FLOW AND CONSTANT-HEAD CELLS.
+      IF(IBOUND(J,I,K).LE.0) GO TO 300
+      HSING=HNEW(J,I,K)
+      HLD = DBLE(HOLD(J,I,K))
+!C
+!C3----TWO STORAGE CAPACITIES, USE YIELD (SC2) IF SPECIFIED.
+      TP=dble(BOTM(J,I,LBOTM(K)-1))
+      BT=dble(BOTM(J,I,LBOTM(K)))
+      THICK = (TP-BT)
+      RHO1 = dble(SC1(J,I,K))
+      RHO2 = dble(SC2UPW(J,I,K))
+      if ( RHO2 < RHO1 ) RHO2 = RHO1
+      ij = Icell(J,I,K)
+      STRG = THICK*RHO2*Sn(ij)
+      Sat_S = Sat_S + STRG
+  300 CONTINUE
       END SUBROUTINE MODFLOW_GET_STORAGE_UPW
 
 !***********************************************************************
@@ -715,22 +718,26 @@
 !***********************************************************************
       SUBROUTINE getStreamFlow()
       USE GSFBUDGET, ONLY: Reach_cfs, Reach_wse, StreamExchng2Sat_Q, &
-     &    Stream_inflow, Streamflow_sfr, Strm_seg_gwin, &                                                                   ! mm
-     &    Strm_seg_us, Strm_seg_ds                                                                                          ! mm
+     &    Stream_inflow, Streamflow_sfr, Seepage_reach_sfr, Seepage_segment_sfr, &                                          ! mm
+     &    Strm_seg_gwin, Strm_seg_us, Strm_seg_ds                                                                           ! mm
       USE GSFMODFLOW, ONLY: Mfl3t_to_cfs
       USE GWFSFRMODULE, ONLY: STRM, IOTSG, NSS, SGOTFLW, SFRRATOUT, &
-     &    TOTSPFLOW, NSTRM, SFRRATIN, ISEG                                                                                  ! mm
+     &    TOTSPFLOW, NSTRM, SFRRATIN, ISTRM, ISEG                                                                           ! mm
       USE PRMS_FLOWVARS, ONLY: Basin_cfs, Basin_cms, Basin_stflow_out
-      USE PRMS_BASIN, ONLY: CFS2CMS_CONV
+      USE PRMS_CONSTANTS, ONLY: CFS2CMS_CONV, ACTIVE
+      USE PRMS_MODULE, ONLY: Ag_package
       USE PRMS_SET_TIME, ONLY: Cfs2inches
+      USE GWFAGMODULE, ONLY:  NUMIRRDIVERSIONSP,IRRSEG
       IMPLICIT NONE
-      INTRINSIC DBLE
+      INTRINSIC :: SNGL
 ! Local Variables
-      INTEGER :: i, j, k, nrch                                                                                              ! mm
+      INTEGER :: i, itemp, j, k, first_reach, nrch                                                                          ! mm
+      REAL :: Mfl3t_to_cfs_sngl
 !***********************************************************************
+      Mfl3t_to_cfs_sngl = SNGL(Mfl3t_to_cfs)
       DO i = 1, NSTRM
 ! Reach_cfs and reach_wse are not used except to be available for output
-        Reach_cfs(i) = DBLE( STRM(9, i) )*Mfl3t_to_cfs
+        Reach_cfs(i) = STRM(9, i)*Mfl3t_to_cfs_sngl
         Reach_wse(i) = STRM(15, i)
       ENDDO
 
@@ -747,16 +754,30 @@
 
 ! Total streamflow out of basin for all streams leaving model area.
 ! Total specified streamflow into model area.
+! Ignore segments that are used for irrigation
       Basin_cfs = 0.0D0
       Stream_inflow = 0.0D0
+      first_reach = 1
       DO i = 1, NSS
-        IF ( IOTSG(i)==0 ) Basin_cfs = Basin_cfs + SGOTFLW(i)
-        Streamflow_sfr(i) = DBLE( SGOTFLW(i) )*Mfl3t_to_cfs
-      ENDDO 
+        itemp = 0
+        IF ( Ag_package==ACTIVE ) THEN
+          DO j = 1, NUMIRRDIVERSIONSP
+            IF ( i == IRRSEG(J) ) itemp = IRRSEG(J)
+          END DO
+        END IF
+        IF ( IOTSG(i)==0 .and. itemp == 0 ) Basin_cfs = Basin_cfs + SGOTFLW(i)
+        Streamflow_sfr(i) = SGOTFLW(i)*Mfl3t_to_cfs_sngl
+        nrch = ISTRM(5, first_reach)
+        DO j = first_reach, nrch + first_reach - 1
+          Seepage_reach_sfr(i) = Seepage_reach_sfr(i) + STRM(11,j)*Mfl3t_to_cfs_sngl
+        ENDDO
+        Seepage_segment_sfr(i) = Seepage_reach_sfr(i)/FLOAT(nrch)
+        first_reach = first_reach + nrch
+      ENDDO
       IF ( TOTSPFLOW<0.0 ) THEN
         Basin_cfs = Basin_cfs + TOTSPFLOW
       ELSE
-! RGN added specified inflows and outflows from SFR. 
+! RGN added specified inflows and outflows from SFR.
         Stream_inflow = Stream_inflow + TOTSPFLOW
       END IF
 ! RGN added next line.
@@ -805,6 +826,7 @@
 !     gsflow_budget_restart - write to or read from restart file
 !***********************************************************************
       SUBROUTINE gsflow_budget_restart(In_out)
+      USE PRMS_CONSTANTS, ONLY: SAVE_INIT
       USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit
       USE GSFBUDGET
       ! Argument
@@ -813,34 +835,16 @@
       ! Local Variable
       CHARACTER(LEN=13) :: module_name
 !***********************************************************************
-      IF ( In_out==0 ) THEN
+      IF ( In_out==SAVE_INIT ) THEN
         WRITE ( Restart_outunit ) MODNAME
         WRITE ( Restart_outunit ) Total_pump, Total_pump_cfs, Unsat_S, Sat_S, &
      &          Sat_dS, StreamExchng2Sat_Q, Stream2Unsat_Q, Stream_inflow, &
      &          Basin_gw2sm, LakeExchng2Sat_Q, Lake2Unsat_Q
-        WRITE ( Restart_outunit ) Gw2sm
-        WRITE ( Restart_outunit ) Actet_gw
-        WRITE ( Restart_outunit ) Actet_tot_gwsz
-        WRITE ( Restart_outunit ) Streamflow_sfr
-!        WRITE ( Restart_outunit ) Uzf_infil_map
-!        WRITE ( Restart_outunit ) Sat_recharge
-!        WRITE ( Restart_outunit ) Mfoutflow_to_gvr
-        WRITE ( Restart_outunit ) Reach_cfs
-        WRITE ( Restart_outunit ) Reach_wse
       ELSE
         READ ( Restart_inunit ) module_name
         CALL check_restart(MODNAME, module_name)
         READ ( Restart_inunit ) Total_pump, Total_pump_cfs, Unsat_S, Sat_S, &
      &         Sat_dS, StreamExchng2Sat_Q, Stream2Unsat_Q, Stream_inflow, &
      &         Basin_gw2sm, LakeExchng2Sat_Q, Lake2Unsat_Q
-        READ ( Restart_inunit ) Gw2sm
-        READ ( Restart_inunit ) Actet_gw
-        READ ( Restart_inunit ) Actet_tot_gwsz
-        READ ( Restart_inunit ) Streamflow_sfr
-!        READ ( Restart_inunit ) Uzf_infil_map
-!        READ ( Restart_inunit ) Sat_recharge
-!        READ ( Restart_inunit ) Mfoutflow_to_gvr
-        READ ( Restart_inunit ) Reach_cfs
-        READ ( Restart_inunit ) Reach_wse
       ENDIF
       END SUBROUTINE gsflow_budget_restart

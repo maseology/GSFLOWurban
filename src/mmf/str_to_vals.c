@@ -60,6 +60,7 @@ long str_to_vals (char *encoded_string, long size, long type, char *store_addr) 
   fval = NULL;
   lval = NULL;
   sval = NULL;  // 2016-01-13 PAN: added sval init
+  svalue = NULL;
 
   switch (type) {
   case M_DOUBLE:
@@ -90,7 +91,7 @@ long str_to_vals (char *encoded_string, long size, long type, char *store_addr) 
 
   while (token != NULL) {
 
-    (void)strcpy(tcopy, token);
+    (void)strncpy(tcopy, token, max_data_ln_len);
     asterisk = strrchr(tcopy, '*'); /* search for '*' */
 
     if (asterisk == NULL ) {        /* no repeat count */

@@ -14,7 +14,7 @@ Cdep  Streamflow-Routing Package. The Streamflow-Routing (sfr7) Package
 Cdep  was also modified to remain compatible with the modifications in
 Cdep  the Lake Package.
 C     Modifications made February and March 21, 2004; DEP
-C     Last change:  MLM & LFK  10 Oct 2003;  LFK 21 Jan 2004
+C     Last change:  MLM & LFK  10 Oct 2003;  LFK 21 Jan 2004F
 C     Previous change:  ERB  13 Sep 2002    9:22 am
 C
 C
@@ -23,7 +23,7 @@ C
 C------OLD USGS VERSION 7.1; JUNE 2006 GWF2LAK7AR; 
 C------UPDATED FOR MF-2005, FEBRUARY 6, 2012  
 !rgn------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-!rgn------NEW VERSION NUMBER FOR NWT 1.1.3, 8/01/2017
+!rgn------NEW VERSION NUMBER FOR NWT 1.1.4, 4/01/2018
 C     ******************************************************************
 C     INITIALIZE POINTER VARIABLES USED BY SFR1 TO SUPPORT LAKE3 AND
 C     GAGE PACKAGES AND THE GWT PROCESS
@@ -31,7 +31,7 @@ C     ******************************************************************
 C
       USE GWFLAKMODULE
       USE GLOBAL,       ONLY: IOUT, NCOL, NROW, NLAY, IFREFM, ITRSS,
-     +                        NODES, IUNIT       !EDM
+     +                        NODES, IUNIT, ITMUNI       !EDM
       USE GWFSFRMODULE, ONLY: NSS
 C
 C      ******************************************************************
@@ -46,6 +46,8 @@ C      ------------------------------------------------------------------
 Crsr  Allocate lake variables used by SFR even if lakes not active so that
 C       argument lists are defined     
       ALLOCATE (NLAKES, NLAKESAR,THETA,LAKUNIT,NSFRLAK,NLKFLWTYP)       !EDM
+      ALLOCATE (IGSFLOWLAK)
+      IGSFLOWLAK = 0
       ALLOCATE(LKFLOWTYPE(6)) ! POSITION 1: STORAGE; 2: DELVOL; 3: PRECIP; 4: EVAP; 5: RUNOFF; 6: WITHDRAWL
 C
 C--REINITIALIZE LKFLOWTYPE WITH EACH STRESS PERIOD
@@ -65,9 +67,9 @@ C
       THETA = 0.0
       IF (IN.GT.0) THEN
 Cdep added SURFDEPTH 3/3/2009
-        ALLOCATE (ILKCB, NSSITR, SSCNCR, SURFDEPTH)
+        ALLOCATE (ILKCB, NSSITR, SSCNCR, SURFDEPTH,RAMP,SMALLTOL)
         ALLOCATE (MXLKND, LKNODE, ICMX, NCLS, LWRT, NDV, NTRB)
-        ALLOCATE (IRDTAB)
+        ALLOCATE (IRDTAB,ISTARTLAK)
 C
 C1------IDENTIFY PACKAGE AND INITIALIZE LKNODE.
       WRITE(IOUT,1) IN
@@ -77,9 +79,21 @@ Cdep  initialize number of iterations and closure criteria to zero.
       NSSITR = 0
       SSCNCR = 0.0
       SURFDEPTH = 0.0
+      RAMP = 1.0
+      SMALLTOL = 1.0d-4
+      IF ( ITMUNI == 1 ) THEN
+          SMALLTOL = SMALLTOL/86400.
+      ELSE IF ( ITMUNI == 2) THEN
+          SMALLTOL = SMALLTOL/1440.
+      ELSE IF ( ITMUNI == 3) THEN    
+          SMALLTOL = SMALLTOL/24.
+      ELSE IF ( ITMUNI == 5 ) THEN
+          SMALLTOL = SMALLTOL*365.
+      END IF
 !
       lloc = 1
       IRDTAB = 0
+      ISTARTLAK = 0
       NPP = 0
       MXVL = 0
       CALL URDCOM(In, IOUT, line)
@@ -163,7 +177,8 @@ C  SET NLAKES ARRAY VARIABLE TO NLAKES IF NLAKES GREATER THAN 0.
       ALLOCATE (VOLOLDD(NLAKESAR))
 !     ALLOCATE (VOLOLDD(NLAKESAR), VOLOLD(NLAKES), VOLINIT(NLAKES))
       ALLOCATE (STGITER(NLAKESAR))
-      ALLOCATE (LAKSEEP(NCOL,NROW))
+      ALLOCATE (LAKSEEP(NCOL,NROW),DEADPOOLVOL(NLAKESAR),
+     +          RELEASABLE_STOR(NLAKESAR), MXLKVOLF(NLAKESAR))
       STGNEW = 0.0D0
       STGOLD = 0.0D0
       STGOLD2 = 0.0D0
@@ -172,6 +187,9 @@ C  SET NLAKES ARRAY VARIABLE TO NLAKES IF NLAKES GREATER THAN 0.
       LAKSEEP = 0.0
       RUNF = 0.0D0
       RUNOFF = 0.0D0
+      DEADPOOLVOL = 0.0
+      MXLKVOLF = 0.0
+      RELEASABLE_STOR = 0.0
 Cdep initialized VOLOLD and VOLINIT  6/4/2009 (VOLOLD is single precision)
 !     VOLOLD = 0.0
 !     VOLINIT = 0.0
@@ -299,9 +317,8 @@ Cdep     1'CONVERGENCE CRITERION = ',1PE9.2)
         ALLOCATE (SUMCNN(NLAKES), SUMCHN(NLAKES))
         ALLOCATE (NCNCVR(NLAKES), LIMERR(NLAKES), DSRFOT(NLAKES))
 Cdep  Allocate arrays that track lake budgets for dry lakes
-        ALLOCATE (EVAPO(NLAKES),WITHDRW(NLAKES),FLWIN(NLAKES))
+        ALLOCATE (WITHDRW(NLAKES),FLWIN(NLAKES))
         ALLOCATE (GWRATELIM(NLAKES))
-        EVAPO = 0.0
         WITHDRW = 0.0D0
         FLWIN = 0.0
         FLWITER = 0.0D0
@@ -402,7 +419,7 @@ C
 C------OLD USGS VERSION 7.1;  JUNE 2006 GWF2LAK7RP
 C        REVISED FEBRUARY 6, 2012
 C------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-C------NEW VERSION NUMBER 1.1.3, 8/01/2017  
+C------NEW VERSION NUMBER 1.1.4, 4/01/2018  
 C     ******************************************************************
 C       READ INPUT DATA FOR THE LAKE PACKAGE.
 C     ------------------------------------------------------------------
@@ -1045,6 +1062,7 @@ C------Define Initial Lake Volume & Initialize Cumulative Budget Terms
              STGINIT=STAGES(LK)
              VOL(LK)=VOLTERP(STGINIT,LK)
              VOLINIT(LK)=VOL(LK)
+             VOLOLDD(LK)=VOL(LK)
  8400   CONTINUE
         DO 8450 LK=1,NLAKES
              CUMPPT(LK)=0.0
@@ -1095,7 +1113,7 @@ C
 C
 C------OLD VERSION 7.1 JUNE 2006 GWF2LAK7AD; REVISED FEBRUARY 6, 2012
 C------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-C------NEW VERSION NUMBER 1.1.3, 8/01/2017  
+C------NEW VERSION NUMBER 1.1.4, 4/01/2018  
 C
 C     ******************************************************************
 C     ADVANCE TO NEXT TIME STEP FOR TRANSIENT LAKE SIMULATION, AND COPY
@@ -1105,7 +1123,7 @@ C     SPECIFICATIONS:
 C     ------------------------------------------------------------------
       USE GWFLAKMODULE, ONLY: NLAKES, LKNODE, FLOB, STAGES,
      +                        STGNEW, STGOLD, VOLOLDD, VOLOLD, VOLINIT,
-     +                        BOTTMS, IDIV, STGOLD2, NDV
+     +                        BOTTMS, IDIV, STGOLD2, NDV, ISTARTLAK
       USE GWFSFRMODULE, ONLY: DLKSTAGE
       USE GLOBAL,       ONLY: IOUT
 C     ------------------------------------------------------------------
@@ -1122,7 +1140,8 @@ C1 --- COPY INITIAL LAKE STAGES TO STGOLD.
 ! RGN COMBINED IF AND ADDED VOLOLDD 4/17/09
 Cdep  initialized VOLINIT and VOLOLD to VOLOLDD 6/4/2009
       DO I=1,NLAKES
-        IF(KKPER.EQ.1.AND.KKSTP.EQ.1) THEN
+        IF( ISTARTLAK==0 ) THEN
+          IF ( I==NLAKES ) ISTARTLAK = 1
           STGOLD(I)=STAGES(I)
           VOLOLDD(I)=VOLTERP(STGOLD(I),I)
           VOLOLD(I) = VOLOLDD(I)
@@ -1239,17 +1258,17 @@ C
 C
 C------OLD USGS VERSION 7.1; JUNE 2006 GWF2LAK7FM; 
 C------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-C------NEW VERSION NUMBER 1.1.3, 8/01/2017  
+C------NEW VERSION NUMBER 1.1.4, 4/01/2018  
 C     ******************************************************************
 C     ADD LAKE TERMS TO RHS AND HCOF IF SEEPAGE OCCURS IN MODEL CELLS
 C     ******************************************************************
 C
       USE GWFLAKMODULE
-      USE GLOBAL,       ONLY: NCOL, NROW, NLAY, IBOUND, IOUT, ISSFLG, 
+      USE GLOBAL,       ONLY: NLAY, IBOUND, IOUT, ISSFLG, 
      +                        DELR, DELC, LBOTM, BOTM, HNEW, HCOF, RHS 
       USE GWFBASMODULE, ONLY: DELT
-      USE GWFSFRMODULE, ONLY: STRIN, STROUT, FXLKOT, DLKSTAGE, SEG
-      USE GWFUZFMODULE, ONLY: SURFDEP,IUZFBND,FINF,VKS
+      USE GWFSFRMODULE, ONLY: STRIN, STROUT, FXLKOT, SEG
+      USE GWFUZFMODULE, ONLY: IUZFBND
 C     ------------------------------------------------------------------
 C     SPECIFICATIONS:
 Cdep  Added functions for interpolating between areas, derivatives, 
@@ -1272,7 +1291,7 @@ Cdep  added runoff and flobo3
 Cdep  added unsaturated flow beneath lakes flag as a local variable
       INTEGER ISS, LK, ITRIB, INODE, LAKE, MTER, IICNVG, L1, MAXITER
       INTEGER NCNV, LL, II, L, IC, IR, IL, ITYPE
-      INTEGER LI, INOFLO, IDV, IL1,n
+      INTEGER INOFLO, IDV, IL1
 Cdep  added SURFDPTH, CONDMX,BOTLKUP,BOTLKDN  3/3/2009
       DOUBLE PRECISION BOTLK,BOTCL,CONDUC,H,FLOBOT,STGON,
      1                 FLOBO3,THET1,CLOSEZERO,
@@ -1385,7 +1404,6 @@ C4C-----INITIALIZE VARIABLES.
           SEEP3(LL)=0.0D0
           SEEPUZ(LL)=0.0D0
           SURFA(LL)=0.0
-          EVAPO(LL) = EVAPLK(LL)
           WITHDRW(LL) = WTHDRW(LL)
           FLWITER(LL) = FLWIN(LL) 
           FLWITER3(LL) = FLWIN(LL)
@@ -1537,12 +1555,21 @@ C
 C12------COMPUTE EVAPORATION AND PRECIPITATION USING STGOLD AND 
 C          ADD PRECIPITATION TO FLWITER AND FLWITER3.
           SURFA(LAKE)=FINTERP(STGNEW(LAKE),LAKE)
-          EVAP(LAKE)=EVAPLK(LAKE)*SURFA(LAKE)
-          PRECIP(LAKE)=PRCPLK(LAKE)*SURFA(LAKE)
+! The following lines were added to make sure the volume of precip
+! is a constant from PRMS
+          IF ( IGSFLOWLAK == 0 ) THEN
+             EVAP(LAKE)=EVAPLK(LAKE)*SURFA(LAKE)
+             PRECIP(LAKE)=PRCPLK(LAKE)*SURFA(LAKE)
+             SRFPT=FINTERP(STGNEW(LAKE)+DLSTG,LAKE)
+             EVAP3(LAKE)=EVAPLK(LAKE)*SRFPT
+             PRECIP3(LAKE)=PRCPLK(LAKE)*SRFPT
+          ELSE
+             EVAP(LAKE) = EVAPLK(LAKE)
+             PRECIP(LAKE) = PRCPLK(LAKE)
+             EVAP3(LAKE) = EVAPLK(LAKE)
+             PRECIP3(LAKE)=PRCPLK(LAKE)
+          END IF
           FLWITER(LAKE) = FLWITER(LAKE) + PRECIP(LAKE)
-          SRFPT=FINTERP(STGNEW(LAKE)+DLSTG,LAKE)
-          EVAP3(LAKE)=EVAPLK(LAKE)*SRFPT
-          PRECIP3(LAKE)=PRCPLK(LAKE)*SRFPT
           FLWITER3(LAKE) = FLWITER3(LAKE) + PRECIP3(LAKE)
 C
 C13------LIMIT WITHDRW TO LAKE INFLOW WHEN WITHDRAWALS EXCEED
@@ -1597,7 +1624,7 @@ C15-----SUM UP OUTFLOWS FROM OUTFLOWING STREAM REACHES.
 ! Set Botlake to elevation of stream channel for specified flow diversion.
                     Botlake = SEG(8,INODE)
                     STROUT(INODE) = 0.0
-                    FXLKOT(INODE) = FXLKOT_TERP(DSTAGE,Botlake,
+                    FXLKOT(INODE) = FXLKOT_TERP(RAMP,DSTAGE,Botlake,
      +                                          Splakout,dy)
                     DSRFOT(LAKE) = DSRFOT(LAKE) + dy
                   END IF
@@ -1655,20 +1682,20 @@ C16C----COMPUTE RESIDUALS FOR STEADY STATE SIMULATIONS.
                 END IF
 C
 C16D----DETERMINE DERIVATIVE AND COMPUTE NEW LAKE STAGE.
-                IF ( DABS(RESID2-RESID1).GT.0.0 ) THEN
+                IF ( DABS(RESID2-RESID1).GT.SMALLTOL ) THEN
                   DERIV = (RESID2-RESID1)/(DLSTG)
                   DSTG = RESID1/DERIV
                   STGNEW(LAKE) = STGITER(LAKE) - DSTG
                   DSTG = ABS(DSTG)
                 ELSE
 C16E----LINEAR CASE. SIMPLY CALCULATE STAGE BASED ON VOLUME.
-                  VOL2 = RESID1
+                  VOL2 = RESID1*DELT
                   IF ( VOL2.LT.0.0 ) VOL2 = 0.0
                   STGNEW(LAKE) = STGTERP(VOL2,LAKE)
                   DSTG = ABS(STGNEW(LAKE) - STGITER(LAKE))
                   NCNCVR(LAKE) = 1
                 END IF
- !     IF (lake==1 .and. kkper==2)then
+ !     IF (lake==1 .and. kkper==1)then
  !     write(521,222)PRECIP(LAKE),EVAP(LAKE),RUNF(LAKE),RUNOFF(LAKE),
  !    1                WITHDRW(LAKE),SURFIN(LAKE),SURFOT(LAKE),
  !    2                SEEP(LAKE),VOLNEW1,VOLOLDD(LAKE),STGITER(LAKE),
@@ -1715,6 +1742,7 @@ C
 C18-----PRINT NEW LAKE STAGE AND PREVIOUS LAKE ITERATION STAGE
 C        WHEN LAKE STAGE DOES NOT CONVERGE.
       DO LAKE=1,NLAKES
+        IF ( ISS > 0 ) VOLOLDD(LAKE) = VOL(LAKE)   !RGN for modsim 5/15/18
         IF( L1.GE.MTER.AND.NCNCVR(LAKE).EQ.0 ) THEN
           WRITE(IOUT,1004) KKITER,  
      1    LAKE,STGNEW(LAKE), STGITER(LAKE)
@@ -1735,7 +1763,7 @@ C
 C
 C------OLD USGS VERSION 7.1; JUNE 2006 GWF2LAK7BD; 
 C------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-C------NEW VERSION NUMBER 1.1.3, 8/01/2017
+C------NEW VERSION NUMBER 1.1.4, 4/01/2018
 C     ******************************************************************
 C     CALCULATE VOLUMETRIC BUDGET FOR LAKES
 C     ******************************************************************
@@ -1748,10 +1776,9 @@ C     ------------------------------------------------------------------
      +                        ISSFLG, DELR, DELC, LBOTM, BOTM, HNEW,
      +                        BUFF,IUNIT
      
-      USE GWFBASMODULE, ONLY: MSUM, ICBCFL, IAUXSV, DELT, PERTIM, TOTIM,
+      USE GWFBASMODULE, ONLY: MSUM, ICBCFL, DELT, PERTIM, TOTIM,
      +                        HNOFLO, VBVL, VBNM
-      USE GWFSFRMODULE, ONLY: STRIN, DLKSTAGE, SLKOTFLW
-      USE GWFUZFMODULE, ONLY: SURFDEP,IUZFBND,FINF,VKS
+      USE GWFSFRMODULE, ONLY: STRIN
       IMPLICIT NONE
       !rsr: argument IUNITSFR not used
       CHARACTER*16 TEXT
@@ -1771,8 +1798,7 @@ C     -----------------------------------------------------------------
       DOUBLE PRECISION BOTLK,BOTCL,CONDUC,H,FLOBOT,STGON,
      1RATE,RATIN,RATOUT
       DOUBLE PRECISION THET1,SURFDPTH,CONDMX,BOTLKUP,BOTLKDN,VOL2
-      DOUBLE PRECISION FLOTOUZF,SILLELEV,ADJSTAGE, voltest, areatest
-      DOUBLE PRECISION RAMPGW,RAMPSTGO,RAMPSTGN,RAMPSTGON,HTEMP
+      DOUBLE PRECISION FLOTOUZF, SILLELEV, ADJSTAGE
       DOUBLE PRECISION CLOSEZERO, FLOBO2, FLOBO3, DLSTG
       DOUBLE PRECISION RUNFD, AREA, RAIN
       REAL zero, FACE, R, WDRAW, OLDSTAGE, AVHD, TOTARE, SUM
@@ -2044,8 +2070,13 @@ C12------COMPUTE EVAPORATION AND PRECIPITATION USING STGOLD AND
 C          ADD PRECIPITATION TO FLWIN.
          DO LL = 1,NLAKES
            SURFA(LL)=FINTERP(STGNEW(LL),LL)
-           EVAP(LL) = EVAPLK(LL)*SURFA(LL)
-           PRECIP(LL) = PRCPLK(LL)*SURFA(LL)
+           IF ( IGSFLOWLAK == 0 ) THEN
+             EVAP(LL)=EVAPLK(LL)*SURFA(LL)
+             PRECIP(LL)=PRCPLK(LAKE)*SURFA(LL)
+           ELSE
+             EVAP(LL) = EVAPLK(LL)
+             PRECIP(LL) = PRCPLK(LL)
+           END IF
            FLWIN(LL) = FLWIN(LL) + PRECIP(LL)
 C
 C13------LIMIT WITHDRW TO LAKE INFLOW WHEN WITHDRAWALS EXCEED
@@ -2110,8 +2141,8 @@ C          NEW VOLUME.
      +                -WDRAW+RUNFD+SURFIN(LAKE)-SURFOT(LAKE)+GWIN(LAKE)    !10/4/2014 added SEEPUZ(LAKE)
      +                -GWOUT(LAKE)-SEEPUZ(LAKE))*DELT
           IF(VOL2.LE.0.0) VOL2=0.0
-          VOL(LAKE) = VOL2
-          STGNEW(LAKE)= STGTERP(VOL2,LAKE)
+!          VOL(LAKE) = VOL2
+!          STGNEW(LAKE) = STGTERP(VOL2,LAKE)
 !C
 !C18B-----COMPUTE LAKE VOLUME FROM ALL INFLOWS AND OUTFLOWS FOR 
 !C          STEADY STATE SIMULATION.
@@ -2966,9 +2997,13 @@ C
 C    -------------------------------------------------------------------
 C        SPECIFICATIONS:
 C    -------------------------------------------------------------------
-      USE GWFLAKMODULE, ONLY: NLAKES, NTRB, NDV, ITRB, IDIV, IRK
+      USE GWFLAKMODULE, ONLY: NLAKES, NTRB, NDV, ITRB, IDIV, IRK, RAMP,
+     +                        DEADPOOLVOL
       USE GLOBAL,       ONLY: IOUT, NODES
-      USE GWFSFRMODULE, ONLY: NSS, IDIVAR, IOTSG, SEG,  ISEG
+      USE GWFSFRMODULE, ONLY: NSS, IDIVAR, IOTSG, SEG, ISEG, CLOSEZERO
+      DOUBLE PRECISION :: SPILL,V
+      DOUBLE PRECISION VOLTERP
+      EXTERNAL VOLTERP
 C
 C-- DOUBLE CHECK SIZE OF IRK (STORED IN BUFF) vs. NLAKES
 C
@@ -3010,6 +3045,21 @@ C---  Stream Outflow from Lakes
         K1 = IRK(2,LAKE)
         IDIV(LAKE,K1) = LSEG
         IF(IRK(2,LAKE).GT.NDV) NDV = IRK(2,LAKE)
+C CALCULATE DEAD POOL STORAGE
+        SPILL = SEG(8,LSEG) + RAMP
+        V = VOLTERP(SPILL,LAKE)
+C---   Account for multiple diversions out of a lake
+        IF(V.GT.CLOSEZERO) THEN
+          IF(V.LT.DEADPOOLVOL(LAKE).OR.
+     +            DEADPOOLVOL(LAKE).LT.CLOSEZERO) THEN
+            DEADPOOLVOL(LAKE) = V
+          ENDIF
+        ENDIF
+        WRITE(IOUT,*)
+        WRITE(IOUT,9008)LAKE,LSEG,V
+        WRITE(IOUT,*)
+9008    FORMAT(6X,'DEAD POOL STORAGE FOR LAKE ',I4,' BELOW SEGMENT ',
+     +         I4,' IS EQUAL TO ',E20.10)
       ENDIF
   100 CONTINUE
 C
@@ -3643,9 +3693,9 @@ C     used in solving lake stage in the FORMULATE SUBROUTINE (LAK7FM).
       DOUBLE PRECISION FUNCTION STGTERP (VOL,LN)
 C     FUNCTION LINEARLY INTERPOLATES BETWEEN TWO VALUES
 C          OF LAKE VOLUME TO CACULATE LAKE STAGE.
-      USE GWFLAKMODULE, ONLY: VOLUMETABLE, DEPTHTABLE,AREATABLE
+      USE GWFLAKMODULE, ONLY: VOLUMETABLE, DEPTHTABLE
       IMPLICIT NONE
-      DOUBLE PRECISION STAGE, VOL, TOLF2, FOLD
+      DOUBLE PRECISION VOL, TOLF2, FOLD
       DOUBLE PRECISION D1, D2, V1, V2, SLOPE
       INTEGER LN, I
 !!      DOUBLE PRECISION VOLUME, STAGE
@@ -3689,7 +3739,7 @@ Cdep&rgn  FUNCTION LINEARLY INTERPOLATES BETWEEN TWO VALUES
 C          OF LAKE STAGE TO CACULATE LAKE OUTFLOW DERIVATIVE.
       USE GWFSFRMODULE, ONLY: DLKOTFLW, DLKSTAGE
       IMPLICIT NONE
-      DOUBLE PRECISION STAGE, DOTFLW, FOLD, TOLF2
+      DOUBLE PRECISION STAGE, FOLD, TOLF2
       DOUBLE PRECISION DS1, DS2, DF1, DF2, SLOPE
       INTEGER LSEG, I
       TOLF2=1.0E-7
@@ -3734,7 +3784,7 @@ C         ADDED 5/16/2006-- changed 12/2007 from "DOUBLE PRECISION FUNCTION"
 C          to "FUNCTION"
       USE GWFSFRMODULE, ONLY: SLKOTFLW, DLKSTAGE
       IMPLICIT NONE
-      DOUBLE PRECISION STAGE, OUTFLOW, FOLD, TOLF2
+      DOUBLE PRECISION STAGE, FOLD, TOLF2
       DOUBLE PRECISION SL1, SL2, DL1, DL2, SLOPE
       INTEGER LSEG, I
       TOLF2=1.0E-9
@@ -3774,11 +3824,13 @@ C          to "FUNCTION"
 C
 C------FUNCTION FXLKOT_TERP FOR SMOOTHING SPECIFIED LAKE OUTFLOWS TO STREAMS.
 C
-      DOUBLE PRECISION FUNCTION FXLKOT_TERP(DSTAGE,Botlake,Splakout,dy)
+      DOUBLE PRECISION FUNCTION FXLKOT_TERP(RAMP,DSTAGE,Botlake,
+     +                                      Splakout,dy)
       IMPLICIT NONE
       DOUBLE PRECISION DSTAGE,Botlake,Splakout, s, aa, ad, b, x, y, dy
+      DOUBLE PRECISION RAMP
       FXLKOT_TERP = 0.0D0
-      s = 2.0
+      s = RAMP
       x = DSTAGE-Botlake
       aa = -1.0d0/(s**2.0d0)
       ad = -2.0D0/(s**2.0d0)
@@ -4036,9 +4088,151 @@ C          CALCULATIONS.
         END IF
 C
 C6E------COMPUTE LAKE SEEPAGE (FLOBOT) AS A FRACTION OF FLOBO1 AND 
-C          FLOB02 AND FLOBO3 AS A FRACTION OF FLOBO1 AND FLOBO3.   
+C          FLOBO2 AND FLOBO3 AS A FRACTION OF FLOBO1 AND FLOBO3.   
       RETURN
-      END SUBROUTINE GET_FLOBOT
+      END SUBROUTINE GET_FLOBOT   
+C
+C-------SUBROUTINE LAK2MODSIM
+      SUBROUTINE LAK2MODSIM(DELTAVOL, LAKEVOL, Diversions, Nsegshold)
+C     *******************************************************************
+C     SET VOLUMES, SFR INFLOWS, AND SFR OUTFLOWS FOR MODSIM
+!--------MARCH 8, 2017
+C     *******************************************************************
+      USE GWFLAKMODULE, ONLY: NLAKES, SURFIN, SURFOT, VOLOLDD, VOL,
+     +                        DEADPOOLVOL, RELEASABLE_STOR, IDIV, 
+     +                        MXLKVOLF
+      USE GWFSFRMODULE, ONLY: IDIVAR, FXLKOT
+      USE GWFBASMODULE, ONLY: DELT
+      IMPLICIT NONE
+C     -------------------------------------------------------------------
+C     SPECIFICATIONS:
+C     -------------------------------------------------------------------
+C     ARGUMENTS
+      INTEGER,          INTENT(IN)    :: Nsegshold
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAVOL(NLAKES), 
+     +                                   LAKEVOL(NLAKES),
+     +                                   Diversions(Nsegshold)
+C     -------------------------------------------------------------------
+!      INTEGER 
+!      DOUBLE PRECISION 
+C     -------------------------------------------------------------------
+C     LOCAL VARIABLES
+C     -------------------------------------------------------------------
+      INTEGER LAKE, M, LAK_ID, INODE
+      DOUBLE PRECISION DELTAQ, start_vol, inflow, outflow, gwsw
+C     -------------------------------------------------------------------
+C
+C
+C1-------SET FLOWS IN AND OUT OF LAKES AND CHANGE IN LAKE VOLUME.
+C
+  !    OPEN(222, FILE='LAKE_DEBUG_.TXT')
+      DO LAKE=1,NLAKES
+        DELTAQ = (SURFIN(LAKE) - SURFOT(LAKE))*DELT
+        DELTAVOL(LAKE) = VOL(LAKE) - VOLOLDD(LAKE) - DELTAQ
+        LAKEVOL(LAKE) = VOL(LAKE)
+        INODE=IDIV(LAKE,1)
+        IF(INODE.EQ.0) INODE=1
+  !      WRITE(222,333)LAKE,PRECIP(LAKE),EVAP(LAKE),
+  !   1     RUNF(LAKE),RUNOFF(LAKE),WITHDRW(LAKE),SURFIN(LAKE),
+  !   2     SURFOT(LAKE),SEEP(LAKE),VOL(LAKE),VOLOLDD(LAKE),
+  !   3     SEG(8,INODE),BOTTMS(LAKE),STGNEW(LAKE),Diversions(505)    ! SEG(8,)=BotLake
+      END DO
+  !333 FORMAT(I5,14E15.7)
+C
+C-----UPDATE RELEASABLE STORAGE ARRAY RETURNED TO MODSIM FOR RESETTING POTENTIAL RELEASE AMOUNT
+      DO LAKE=1,NLAKES
+        RELEASABLE_STOR(LAKE) = VOL(LAKE) - DEADPOOLVOL(LAKE)
+        IF (RELEASABLE_STOR(LAKE).LT.0.0) RELEASABLE_STOR(LAKE) = 0.0
+      ENDDO
+C
+C-----LOOP OVER REACHES AND OVERRIDE LAKE RELEASES IF WATER LIMITED
+      IF (Nsegshold.GT.-1) THEN
+        DO M = 1, Nsegshold
+          IF (IDIVAR(1,M).LT.0) THEN
+            LAK_ID = ABS(IDIVAR(1,M))
+            ! Set some variables for readability of ELSEIF statement
+            start_vol = VOLOLDD(LAK_ID)
+            inflow = SURFIN(LAK_ID)
+            outflow = SURFOT(LAK_ID)
+            gwsw = DELTAVOL(LAK_ID)
+C            
+            ! The following bit of code added to handle stress period 54
+            IF (VOL(LAK_ID).GT.(MXLKVOLF(LAK_ID)+1.0).AND.
+     &          .NOT.MXLKVOLF(LAK_ID).LT.0.0) THEN
+              !Diversions(M) = (VOL(LAK_ID) - MXLKVOLF(LAK_ID)) / DELT
+            ELSEIF((start_vol + inflow + gwsw).LT.
+     &             DEADPOOLVOL(LAK_ID)) THEN
+              Diversions(M) = 0.0001
+            !INODE = IDIV(LAKE,IDV)
+C           THE FOLLOWING CONDITION WILL BE TRIGGERED WHEN NEAR DEADPOOL STORAGE
+C           CHECKS WHAT'S AVAILABLE AGAINST WHAT MODSIM IS ASKING FOR ("Diversions")
+            ELSEIF((start_vol + inflow - outflow + gwsw + 1.0).LT.
+     &              DEADPOOLVOL(LAK_ID)) THEN
+             Diversions(M)=MAX((RELEASABLE_STOR(LAK_ID)/DELT),FXLKOT(M))
+            !ELSEIF((RELEASABLE_STOR(LAK_ID)/DELT).LT.Diversions(M)) THEN
+              !Diversions(M)=RELEASABLE_STOR(LAK_ID) / DELT
+             !Diversions(M)=MAX((RELEASABLE_STOR(LAK_ID)/DELT),FXLKOT(M))
+      ! NEED TODO: Look into "/ DELT", could be an issue in Deschutes where seconds are used.
+      ! Need to check this calculation by hand to make sure units are as expected for MODSIM
+   !          Diversions(M) = (RELEASABLE_STOR(LAK_ID) / DELT) + 
+   !  &                       FXLKOT(M)
+            ENDIF
+          ENDIF
+        ENDDO
+      ENDIF
+C
+C5------RETURN.
+      RETURN
+      END SUBROUTINE LAK2MODSIM
+C
+C-------SUBROUTINE LAK2MODSIM, But directly callable by MODSIM
+      SUBROUTINE LAK2MODSIM_InitLakes(DELTAVOL,LAKEVOL, MXLKVOL) 
+     &                           BIND(C,NAME="LAK2MODSIM_InitLakes")
+      
+C      !DEC$ ATTRIBUTES DLLEXPORT :: LAK2MODSIM_InitLakes
+      
+C     *******************************************************************
+C     SET VOLUMES, SFR INFLOWS, AND SFR OUTFLOWS FOR MODSIM
+!--------MARCH 8, 2017
+C     *******************************************************************
+      USE GWFLAKMODULE, ONLY: NLAKES, DEADPOOLVOL, MXLKVOLF
+      IMPLICIT NONE
+C     -------------------------------------------------------------------
+C     SPECIFICATIONS:
+C     -------------------------------------------------------------------
+C     ARGUMENTS
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAVOL(NLAKES), 
+     +                                   LAKEVOL(NLAKES),
+     +                                   MXLKVOL(NLAKES)
+C      INTEGER, INTENT(IN) :: KITER,KSTP,KPER
+C     -------------------------------------------------------------------
+!      INTEGER 
+!      DOUBLE PRECISION 
+C     -------------------------------------------------------------------
+C     LOCAL VARIABLES
+C     -------------------------------------------------------------------
+      INTEGER LAKE
+      DOUBLE PRECISION :: dmy(1)
+C     -------------------------------------------------------------------
+C
+C0----FILL A NEW VARIABLE CALLED MXLKVOLF CONTAINING THE MODSIM MAX LAKE STORAGE
+      DO LAKE=1, NLAKES
+        MXLKVOLF(LAKE) = MXLKVOL(LAKE)
+      ENDDO
+C
+C1-------SET FLOWS IN AND OUT OF LAKES AND CHANGE IN LAKE VOLUME.
+C
+      dmy(1) = 0.0D0
+      CALL LAK2MODSIM(DELTAVOL,LAKEVOL, dmy(1), -1) ! rsr, the 0 needs to be an array, values
+C
+C2------STUFF DELTAVOL WITH DEADPOOL INFORMATION CALCULATED BY MODFLOW
+      DO LAKE=1, NLAKES
+        DELTAVOL(LAKE) = DEADPOOLVOL(LAKE)
+      ENDDO
+C
+C5------RETURN.
+      RETURN
+      END SUBROUTINE LAK2MODSIM_InitLakes
 C   
 C
       SUBROUTINE GWF2LAK7DA(IUNITLAK, IGRID)
@@ -4065,9 +4259,15 @@ C
       DEALLOCATE (GWFLAKDAT(IGRID)%ILKCB)
       DEALLOCATE (GWFLAKDAT(IGRID)%LAKTAB)
       DEALLOCATE (GWFLAKDAT(IGRID)%IRDTAB)
+      DEALLOCATE (GWFLAKDAT(IGRID)%ISTARTLAK)
       DEALLOCATE (GWFLAKDAT(IGRID)%NSSITR)
 Cdep  deallocate SURFDEPTH 3/3/2009
       DEALLOCATE (GWFLAKDAT(IGRID)%SURFDEPTH)
+      DEALLOCATE (GWFLAKDAT(IGRID)%RAMP)
+      DEALLOCATE (GWFLAKDAT(IGRID)%SMALLTOL)
+      DEALLOCATE (GWFLAKDAT(IGRID)%DEADPOOLVOL)
+      DEALLOCATE (GWFLAKDAT(IGRID)%RELEASABLE_STOR)
+      DEALLOCATE (GWFLAKDAT(IGRID)%MXLKVOLF)
       DEALLOCATE (GWFLAKDAT(IGRID)%MXLKND)
       DEALLOCATE (GWFLAKDAT(IGRID)%LKNODE)
       DEALLOCATE (GWFLAKDAT(IGRID)%ICMX)
@@ -4127,7 +4327,6 @@ Cdep  deallocate SURFDEPTH 3/3/2009
       DEALLOCATE (GWFLAKDAT(IGRID)%CLAKINIT)
       DEALLOCATE (GWFLAKDAT(IGRID)%BDLKN1)
 Cdep  Added arrays that track lake budgets for dry lakes
-      DEALLOCATE (GWFLAKDAT(Igrid)%EVAPO)
       DEALLOCATE (GWFLAKDAT(Igrid)%WITHDRW)
       DEALLOCATE (GWFLAKDAT(Igrid)%FLWIN)
       DEALLOCATE (GWFLAKDAT(Igrid)%FLWITER)
@@ -4182,6 +4381,7 @@ Cdep  Added arrays that calculate lake budgets 6/9/2009
       DEALLOCATE (GWFLAKDAT(IGRID)%RUNOFF)    !EDM
       DEALLOCATE (GWFLAKDAT(IGRID)%LKFLOWTYPE)
       DEALLOCATE (GWFLAKDAT(IGRID)%NLKFLWTYP)
+      DEALLOCATE (GWFLAKDAT(IGRID)%IGSFLOWLAK)
       END SUBROUTINE GWF2LAK7DA
 
       SUBROUTINE SGWF2LAK7PNT(IGRID)
@@ -4195,6 +4395,7 @@ C
       ILKCB=>GWFLAKDAT(IGRID)%ILKCB
       LAKTAB=>GWFLAKDAT(IGRID)%LAKTAB
       IRDTAB=>GWFLAKDAT(IGRID)%IRDTAB
+      ISTARTLAK=>GWFLAKDAT(IGRID)%ISTARTLAK
       NSSITR=>GWFLAKDAT(IGRID)%NSSITR
       MXLKND=>GWFLAKDAT(IGRID)%MXLKND
       LKNODE=>GWFLAKDAT(IGRID)%LKNODE
@@ -4207,6 +4408,11 @@ C
       SSCNCR=>GWFLAKDAT(IGRID)%SSCNCR
 Cdep  added SURFDEPTH 3/3/2009
       SURFDEPTH=>GWFLAKDAT(IGRID)%SURFDEPTH
+      RAMP=>GWFLAKDAT(IGRID)%RAMP
+      SMALLTOL=>GWFLAKDAT(IGRID)%SMALLTOL
+      DEADPOOLVOL=>GWFLAKDAT(IGRID)%DEADPOOLVOL
+      RELEASABLE_STOR=>GWFLAKDAT(IGRID)%RELEASABLE_STOR
+      MXLKVOLF=>GWFLAKDAT(IGRID)%MXLKVOLF
       ICS=>GWFLAKDAT(IGRID)%ICS
       NCNCVR=>GWFLAKDAT(IGRID)%NCNCVR
       LIMERR=>GWFLAKDAT(IGRID)%LIMERR
@@ -4263,7 +4469,6 @@ Cdep  added SURFDEPTH 3/3/2009
       CLAKINIT=>GWFLAKDAT(IGRID)%CLAKINIT
       BDLKN1=>GWFLAKDAT(IGRID)%BDLKN1
 Cdep  Added arrays that track lake budgets for dry lakes
-      EVAPO=>GWFLAKDAT(Igrid)%EVAPO
       WITHDRW=>GWFLAKDAT(Igrid)%WITHDRW
       FLWIN=>GWFLAKDAT(Igrid)%FLWIN
       FLWITER=>GWFLAKDAT(Igrid)%FLWITER
@@ -4317,6 +4522,7 @@ Cdep  Allocate lake budget error arrays 6/9/2009
       LAKSEEP=>GWFLAKDAT(IGRID)%LAKSEEP
       RUNF=>GWFLAKDAT(IGRID)%RUNF        !EDM
       RUNOFF=>GWFLAKDAT(IGRID)%RUNOFF    !EDM
+      IGSFLOWLAK=>GWFLAKDAT(IGRID)%IGSFLOWLAK
       END SUBROUTINE SGWF2LAK7PNT
 
       SUBROUTINE SGWF2LAK7PSV1(IGRID)
@@ -4347,13 +4553,19 @@ C
       GWFLAKDAT(IGRID)%ICMX=>ICMX
       GWFLAKDAT(IGRID)%LAKTAB=>LAKTAB
       GWFLAKDAT(IGRID)%IRDTAB=>IRDTAB
+      GWFLAKDAT(IGRID)%ISTARTLAK=>ISTARTLAK
       GWFLAKDAT(IGRID)%NCLS=>NCLS
       GWFLAKDAT(IGRID)%LWRT=>LWRT
       GWFLAKDAT(IGRID)%NDV=>NDV
       GWFLAKDAT(IGRID)%NTRB=>NTRB
       GWFLAKDAT(IGRID)%SSCNCR=>SSCNCR
-Cdep  Added SURDEPTH 3/3/2009
+Cdep  Added SURFDEPTH 3/3/2009
       GWFLAKDAT(IGRID)%SURFDEPTH=>SURFDEPTH
+      GWFLAKDAT(IGRID)%RAMP=>RAMP
+      GWFLAKDAT(IGRID)%SMALLTOL=>SMALLTOL
+      GWFLAKDAT(IGRID)%DEADPOOLVOL=>DEADPOOLVOL
+      GWFLAKDAT(IGRID)%RELEASABLE_STOR=>RELEASABLE_STOR
+      GWFLAKDAT(IGRID)%MXLKVOLF=>MXLKVOLF
       GWFLAKDAT(IGRID)%ICS=>ICS
       GWFLAKDAT(IGRID)%NCNCVR=>NCNCVR
       GWFLAKDAT(IGRID)%LIMERR=>LIMERR
@@ -4405,7 +4617,6 @@ Cdep  Added SURDEPTH 3/3/2009
       GWFLAKDAT(IGRID)%CLAKINIT=>CLAKINIT
       GWFLAKDAT(IGRID)%BDLKN1=>BDLKN1
 Cdep  Added arrays that track lake budgets for dry lakes
-      GWFLAKDAT(Igrid)%EVAPO=>EVAPO
       GWFLAKDAT(Igrid)%WITHDRW=>WITHDRW
       GWFLAKDAT(Igrid)%FLWIN=>FLWIN
       GWFLAKDAT(Igrid)%FLWITER=>FLWITER
@@ -4459,4 +4670,5 @@ crgn Allocate budget arrays for GSFLOW CSV file
       GWFLAKDAT(IGRID)%LAKSEEP=>LAKSEEP
       GWFLAKDAT(IGRID)%RUNF=>RUNF        !EDM
       GWFLAKDAT(IGRID)%RUNOFF=>RUNOFF    !EDM
+      GWFLAKDAT(IGRID)%IGSFLOWLAK=>IGSFLOWLAK
       END SUBROUTINE SGWF2LAK7PSV

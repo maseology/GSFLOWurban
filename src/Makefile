@@ -12,6 +12,7 @@ MMF      = ./mmf
 PRMS     = ./prms
 GSFLOW   = ./gsflow
 MODFLOW  = ./modflow
+LIB		 = ./lib
 
 #
 # Standard Targets for Users

@@ -15,7 +15,9 @@
       MODULE PRMS_URBAN
         IMPLICIT NONE
         ! Local Variables
+        character(len=*), parameter :: MODDESC = 'Urban Runoff'                                                             ! mm
         CHARACTER(LEN=13), SAVE :: MODNAME
+        character(len=*), parameter :: Version_srunoff_urban = '2020-07-29'
         ! Declared Variables
         DOUBLE PRECISION, SAVE :: Basin_dscn_stor, Basin_dscn_evap
         REAL, SAVE, ALLOCATABLE :: Dscn_stor(:), Dscn_stor_evap(:), Hru_dscnstorevap(:)
@@ -43,25 +45,26 @@
 !***********************************************************************
 !     Main urban waterbalance routine
 !***********************************************************************
-      INTEGER FUNCTION srunoff_urban()
-      USE PRMS_MODULE, ONLY: Process, Save_vars_to_file, Init_vars_from_file
+      INTEGER FUNCTION urban()
+      USE PRMS_CONSTANTS, ONLY: RUN, DECL, INIT, CLEAN, ACTIVE, READ_INIT, SAVE_INIT, OFF
+      USE PRMS_MODULE, ONLY: Process_flag, Init_vars_from_file, Save_vars_to_file
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: urbandecl, urbaninit
       EXTERNAL :: urban_restart
 !***********************************************************************
-      srunoff_urban = 0
+      urban = 0
 
-      IF ( Process(:4)=='decl' ) THEN
-        srunoff_urban = urbandecl()
-      ELSEIF ( Process(:4)=='init' ) THEN
-        IF ( Init_vars_from_file==1 ) CALL urban_restart(1)
-        srunoff_urban = urbaninit()
-      ELSEIF ( Process(:5)=='clean' ) THEN
-        IF ( Save_vars_to_file==1 ) CALL urban_restart(0)
-      ENDIF
+      IF ( Process_flag==DECL ) THEN
+        urban = urbandecl()
+      ELSEIF ( Process_flag==INIT ) THEN
+        IF ( Init_vars_from_file>OFF ) CALL urban_restart(READ_INIT)
+        urban = urbaninit()
+      ELSEIF ( Process_flag==CLEAN ) THEN
+        IF ( Save_vars_to_file==ACTIVE ) CALL urban_restart(SAVE_INIT)
+      ENDIF      
 
-      END FUNCTION srunoff_urban    
+      END FUNCTION urban    
     
 !***********************************************************************
 !     urbandecl - set up parameters for urban waterbalance computations
@@ -76,11 +79,11 @@
 ! Functions
       INTEGER, EXTERNAL :: decldim, declvar, declparam
       EXTERNAL read_error
-! Local Variables
-      CHARACTER(LEN=80), SAVE :: Version_srunoff_urban
 !***********************************************************************
       urbandecl = 0
         
+      CALL print_module(MODDESC, MODNAME, Version_srunoff_urban)
+
       IF ( decldim('ndscn', 0, MAXDIM, 'Number of disconnected reservoirs')/=0 ) CALL read_error(7, 'ndscn')
       IF ( decldim('ninfstor', 0, MAXDIM, 'Number of infiltration storage reservoirs')/=0 ) CALL read_error(7, 'ninfstor')
       
@@ -352,14 +355,15 @@
 !     urbaninit - Initialize urban module - get parameter values
 !***********************************************************************
       INTEGER FUNCTION urbaninit()
-      USE PRMS_URBAN
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, OFF, DEBUG_less
+      USE PRMS_CONSTANTS, ONLY: NEARZERO
       USE PRMS_MODULE, ONLY: Model, Nhru, Ndscn, Ninfstor, Print_debug, &
      &    Inputerror_flag, Parameter_check_flag, Init_vars_from_file
-      USE PRMS_BASIN, ONLY: Hru_area, Hru_elev, Hru_imperv, Hru_percent_imperv, &
-     &    NEARZERO
+      USE PRMS_URBAN
+      USE PRMS_BASIN, ONLY: Hru_area, Hru_elev, Hru_imperv, Hru_percent_imperv
       IMPLICIT NONE
       INTEGER, EXTERNAL :: getdim, getparam
-      EXTERNAL read_error, check_param_value, check_param_limits
+      EXTERNAL read_error, check_param_limits
 ! Local Variables
       INTEGER :: i, d, f, num_hrus
       REAL :: frac_sum
@@ -368,7 +372,7 @@
 !***********************************************************************
       urbaninit = 0
         
-      IF ( Init_vars_from_file==0 ) THEN
+      IF ( Init_vars_from_file==OFF ) THEN
         Basin_dscn_stor = 0.0D0
         Basin_dscn_evap = 0.0D0
         Basin_infstor = 0.0D0
@@ -437,7 +441,7 @@
           ENDIF            
         ENDIF
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,/,9X,A,I7,/,9X,A,/)') &
      &         'WARNING: fraction of disconnected cover equals 0.0, but the', &
      &         'HRU has been assigned a disconnected storage reservoir ID.', &
@@ -448,7 +452,7 @@
       DO i = 1, Ndscn
         IF ( dscn_id_cnt(i)==0 ) num_hrus = num_hrus + 1
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,I4,A,/,9X,A,/)') &
      &         'WARNING: ', num_hrus, ' disconnected reservoirs were not assigned ', &
      &         'to any HRU. These reservoirs will be ignored.'
@@ -477,7 +481,7 @@
           ENDIF            
         ENDIF
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,/,9X,A,I7,/,9X,A,/)') &
      &         'WARNING: fraction of HRU covering an infiltration reservoir', &
      &         'equals 0.0, but the HRU has been assigned a reservoir ID.', &
@@ -488,7 +492,7 @@
       DO i = 1, Ninfstor
         IF ( infstor_id_cnt(i)==0 ) num_hrus = num_hrus + 1
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,I4,A,/,9X,A,/)') &
      &         'WARNING: ', num_hrus, ' infiltration reservoirs were not assigned ', &
      &         'to any HRU. These reservoirs will be ignored.'
@@ -526,7 +530,7 @@
         IF ( d>0 ) dscn_area(d) = dscn_area(d) + Hru_dscn(i)
         IF ( f>0 ) infstor_area(f) = infstor_area(f) + Hru_infstor(i)
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,/,9X,A,I7,/,9X,A,/)') &
      &         'WARNING: fraction of impervious cover equals 0.0 and the', &
      &         'specified disconnected fraction is greater than 0.0', &
@@ -558,22 +562,22 @@
         ENDIF        
       ENDDO    
       
-      IF ( Parameter_check_flag>0 ) THEN
+      IF ( Parameter_check_flag==ACTIVE ) THEN
         DO i = 1, Nhru        
-          CALL check_param_value(i, 'imperv_stor_seep', Imperv_stor_seep(i), Inputerror_flag)
-          CALL check_param_value(i, 'imperv_stor_to_stdrn', Imperv_stor_to_stdrn(i), Inputerror_flag)
+          CALL check_param_limits(i, 'imperv_stor_seep', Imperv_stor_seep(i), 0.0, 1.0, Inputerror_flag)
+          CALL check_param_limits(i, 'imperv_stor_to_stdrn', Imperv_stor_to_stdrn(i), 0.0, 1.0, Inputerror_flag)
           CALL check_param_limits(i, 'stdrn_cond', Stdrn_cond(i), 0.0, 1000.0, Inputerror_flag)
           IF ( Ndscn>0 ) THEN
-            CALL check_param_value(i, 'dscn_evap_frac', Dscn_evap_frac(i), Inputerror_flag)
-            CALL check_param_value(i, 'dscn_to_stdrn', Dscn_to_stdrn(i), Inputerror_flag)          
+            CALL check_param_limits(i, 'dscn_evap_frac', Dscn_evap_frac(i), 0.0, 1.0, Inputerror_flag)
+            CALL check_param_limits(i, 'dscn_to_stdrn', Dscn_to_stdrn(i), 0.0, 1.0, Inputerror_flag)          
             IF ( Ninfstor>0 ) THEN
-              CALL check_param_value(i, 'dscn_to_infstor', Dscn_to_infstor(i), Inputerror_flag)
+              CALL check_param_limits(i, 'dscn_to_infstor', Dscn_to_infstor(i), 0.0, 1.0, Inputerror_flag)
             ENDIF
           ENDIF
           IF ( Ninfstor>0 ) THEN
-            CALL check_param_value(i, 'imperv_stor_to_infstor', Imperv_stor_to_infstor(i), Inputerror_flag)
-            CALL check_param_value(i, 'infstor_seep_coef', Infstor_seep_coef(i), Inputerror_flag)
-            CALL check_param_value(i, 'infstor_to_stdrn_coef', Infstor_to_stdrn_coef(i), Inputerror_flag)              
+            CALL check_param_limits(i, 'imperv_stor_to_infstor', Imperv_stor_to_infstor(i), 0.0, 1.0, Inputerror_flag)
+            CALL check_param_limits(i, 'infstor_seep_coef', Infstor_seep_coef(i), 0.0, 1.0, Inputerror_flag)
+            CALL check_param_limits(i, 'infstor_to_stdrn_coef', Infstor_to_stdrn_coef(i), 0.0, 1.0, Inputerror_flag)              
           ENDIF
         ENDDO
         DO i = 1, Ndscn
@@ -595,7 +599,7 @@
           Dscn_to_stdrn(i) = 1.0-Dscn_to_infstor(i)
         ENDIF        
       ENDDO          
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,/,9X,A,I7,/,9X,A,/,9X,A,/)') &
      &         'WARNING, fractions partitioning disconnected area inputs is over', &
      &         'specified: dscn_to_stdrn+dscn_to_infstor>1.0', &
@@ -617,7 +621,7 @@
           ENDIF
         ENDIF       
       ENDDO          
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,/,9X,A,I7,/,9X,A,/,9X,A,/)') &
      &         'WARNING, fractions partitioning storm drain inputs is over', &
      &         'specified: imperv_stor_to_stdrn+imperv_stor_to_infstor>1.0', &
@@ -633,7 +637,7 @@
           Imperv_stor_seep(i)=1.0
         ENDIF
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,I7,/,9X,A,/)') &
      &         'WARNING, impervious seepage coefficient is great than 1.0.', &
      &         'number of HRUs for which this condition exists:', num_hrus, &
@@ -647,7 +651,7 @@
           Stdrn_invert(i) = Hru_elev(i)
         ENDIF
       ENDDO
-      IF ( num_hrus>0 .AND. Print_debug>-1 ) THEN
+      IF ( num_hrus>0 .AND. Print_debug>DEBUG_less ) THEN
         WRITE (*, '(/,A,/,9X,A,I7,/,9X,A,/)') &
      &         'WARNING: storm drainage invert greater than HRU elevation.', &
      &         'number of HRUs for which this condition exists:', num_hrus, &

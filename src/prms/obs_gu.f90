@@ -2,10 +2,13 @@
 ! Reads and stores observed data from all specified measurement stations
 !***********************************************************************
       MODULE PRMS_OBS
+      USE PRMS_CONSTANTS, ONLY: MONTHS_PER_YEAR
       IMPLICIT NONE
 !   Local Variables
-      CHARACTER(LEN=3), SAVE :: MODNAME
-      INTEGER, SAVE :: Nsnow, Nlakeelev, Nwind, Nhumid, Rain_flag
+      character(len=*), parameter :: MODDESC = 'Time Series Data'
+      character(len=*), parameter :: MODNAME = 'obs'
+      character(len=*), parameter :: Version_obs = '2021-08-13'
+      INTEGER, SAVE :: Nlakeelev, Nwind, Nhumid, Rain_flag
 !   Declared Variables
       INTEGER, SAVE :: Rain_day
       REAL, SAVE, ALLOCATABLE :: Pan_evap(:), Runoff(:), Precip(:)
@@ -17,32 +20,29 @@
       ! Lake Module Variables
       REAL, SAVE, ALLOCATABLE :: Gate_ht(:), Lake_elev(:)
 !   Declared Parameters
-      INTEGER, SAVE :: Runoff_units, Rain_code(12)
+      INTEGER, SAVE :: Runoff_units, Rain_code(MONTHS_PER_YEAR)
       END MODULE PRMS_OBS
 
 !***********************************************************************
 !     main obs routine
 !***********************************************************************
       INTEGER FUNCTION obs()
-      USE PRMS_MODULE, ONLY: Process, Save_vars_to_file, Init_vars_from_file
+      USE PRMS_CONSTANTS, ONLY: RUN, SETDIMENS, DECL, INIT
+      USE PRMS_MODULE, ONLY: Process_flag
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: obsdecl, obsinit, obsrun, obssetdims
-      EXTERNAL :: obs_restart
 !***********************************************************************
       obs = 0
 
-      IF ( Process(:3)=='run' ) THEN
+      IF ( Process_flag==RUN ) THEN
         obs = obsrun()
-      ELSEIF ( Process(:7)=='setdims' ) THEN
+      ELSEIF ( Process_flag==SETDIMENS ) THEN
         obs = obssetdims()
-      ELSEIF ( Process(:4)=='decl' ) THEN
+      ELSEIF ( Process_flag==DECL ) THEN
         obs = obsdecl()
-      ELSEIF ( Process(:4)=='init' ) THEN
-        IF ( Init_vars_from_file>0 ) CALL obs_restart(1)
+      ELSEIF ( Process_flag==INIT ) THEN
         obs = obsinit()
-      ELSEIF ( Process(:5)=='clean' ) THEN
-        IF ( Save_vars_to_file==1 ) CALL obs_restart(0)
       ENDIF
 
       END FUNCTION obs
@@ -51,7 +51,7 @@
 !     obssetdims - declares obs module specific dimensions
 !***********************************************************************
       INTEGER FUNCTION obssetdims()
-      USE PRMS_MODULE, ONLY: MAXDIM
+      USE PRMS_CONSTANTS, ONLY: MAXDIM
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: decldim
@@ -59,7 +59,6 @@
 !***********************************************************************
       obssetdims = 0
 
-      IF ( decldim('nsnow', 0, MAXDIM, 'Number of snow-depth-measurement stations')/=0 ) CALL read_error(7, 'nsnow')
       IF ( decldim('nlakeelev', 0, MAXDIM, &
      &     'Maximum number of lake elevations for any rating table data set')/=0 ) CALL read_error(7, 'nlakeelev')
       IF ( decldim('nwind', 0, MAXDIM, 'Number of wind-speed measurement stations')/=0 ) CALL read_error(7, 'nwind')
@@ -73,21 +72,18 @@
 !     rain_code
 !***********************************************************************
       INTEGER FUNCTION obsdecl()
-      USE PRMS_OBS
-      USE PRMS_MODULE, ONLY: Precip_flag, Model, Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap
+      USE PRMS_CONSTANTS, ONLY: DOCUMENTATION, ACTIVE, OFF, xyz_dist_module
+      USE PRMS_MODULE, ONLY: Model, Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap, Nsnow, Precip_flag
       USE PRMS_MODULE, ONLY: NmaxPrecipObs                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs
+      USE PRMS_OBS
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: declvar, getdim, declparam
-      EXTERNAL read_error, print_module
-! Local Variable
-      CHARACTER(LEN=80), SAVE :: Version_obs
+      EXTERNAL :: read_error, print_module
 !***********************************************************************
       obsdecl = 0
 
-      Version_obs = 'obs.f90 2017-09-27 12:07:00Z'
-      CALL print_module(Version_obs, 'Time Series Data            ', 90)
-      MODNAME = 'obs'
+      CALL print_module(MODDESC, MODNAME, Version_obs)
 
 !   Declared Variables
       IF ( Nobs>0 ) THEN
@@ -116,7 +112,7 @@
      &       'precip_units', Precip)/=0 ) CALL read_error(8, 'precip')
       ENDIF
 
-      !If required, create storage space for sub-daily precipitation values                             ! PJT - 2018Jan03 - Sub-daily precip inputs      
+      !If required, create storage space for sub-daily precipitation values                             ! PJT - 2018Jan03 - begin Sub-daily precip inputs      
       IF ( NmaxPrecipObs>0 ) THEN                                                                       ! PJT - 2018Jan03    
         ALLOCATE ( SubDailyPrecip(Nrain, NmaxPrecipObs) )
         IF ( declvar(MODNAME, 'subdailyprecip', 'nrain,nmaxprecipobs', Nrain*NmaxPrecipObs, 'real', & 
@@ -134,8 +130,8 @@
         IF ( declvar(MODNAME, 'numprecipobs', 'one', 1, 'integer', &
      &       'Number of sub-daily precip observations in this timestep', &
      &       'none', NumPrecipObs)/=0 ) CALL read_error(8, 'numprecipobs')                              ! PJT - 2018Jan03 
-      ENDIF                                                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs 
-      
+      ENDIF                                                                                             ! PJT - 2018Jan03 - end Sub-daily precip inputs 
+  
       IF ( Ntemp>0 ) THEN
         ALLOCATE ( Tmin(Ntemp) )
         IF ( declvar(MODNAME, 'tmin', 'ntemp', Ntemp, 'real', &
@@ -163,7 +159,7 @@
       Nlakeelev = getdim('nlakeelev')
       IF ( Nlakeelev==-1 ) CALL read_error(6, 'nlakeelev')
 
-      IF ( Model==99 ) THEN
+      IF ( Model==DOCUMENTATION ) THEN
         IF ( Nsnow==0 ) Nsnow = 1
         IF ( Nhumid==0 ) Nhumid = 1
         IF ( Nwind==0 ) Nwind = 1
@@ -195,13 +191,13 @@
         ALLOCATE ( Wind_speed(Nwind) )
         IF ( declvar(MODNAME, 'wind_speed', 'nwind', Nwind, 'real', &
      &       'Wind speed at each measurement station', &
-     &       'mph', Wind_speed)/=0 ) CALL read_error(8, 'wind_speed')
+     &       'meters per second', Wind_speed)/=0 ) CALL read_error(8, 'wind_speed')
       ENDIF
 
 !   Declared Parameters
-      Rain_flag = 0
-      IF ( Precip_flag==6 ) Rain_flag = 1
-      IF ( Rain_flag==1 .OR. Model==99 ) THEN
+      Rain_flag = OFF
+      IF ( Precip_flag==xyz_dist_module ) Rain_flag = ACTIVE
+      IF ( Rain_flag==ACTIVE .OR. Model==DOCUMENTATION ) THEN
         IF ( declvar(MODNAME, 'rain_day', 'one', 1, 'integer', &
      &       'Flag to set the form of any precipitation to rain (0=determine form; 1=rain)', &
      &       'none', Rain_day)/=0 ) CALL read_error(8, 'rain_day')
@@ -240,44 +236,43 @@
 !     obsinit - initializes obs module
 !***********************************************************************
       INTEGER FUNCTION obsinit()
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, OFF, MONTHS_PER_YEAR, CFS
+      USE PRMS_MODULE, ONLY: Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap, Nsnow
       USE PRMS_OBS
-      USE PRMS_MODULE, ONLY: Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap, Init_vars_from_file
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: getparam
-      EXTERNAL read_error
+      EXTERNAL :: read_error
 !***********************************************************************
       obsinit = 0
 
-      Runoff_units = 0
+      Runoff_units = CFS
       IF ( Nobs>0 ) THEN
         IF ( getparam(MODNAME, 'runoff_units', 1, 'integer', Runoff_units)/=0 ) CALL read_error(2, 'runoff_units')
       ENDIF
 
-      IF ( Rain_flag==1 ) THEN
-        IF ( getparam(MODNAME, 'rain_code', 12, 'integer', Rain_code)/=0 ) CALL read_error(2, 'rain_code')
+      IF ( Rain_flag==ACTIVE ) THEN
+        IF ( getparam(MODNAME, 'rain_code', MONTHS_PER_YEAR, 'integer', Rain_code)/=0 ) CALL read_error(2, 'rain_code')
       ENDIF
 
-      IF ( Init_vars_from_file==0 ) THEN
-        IF ( Nobs>0 ) THEN
-          Runoff = 0.0
-          Streamflow_cfs = 0.0D0
-          Streamflow_cms = 0.0D0
-        ENDIF
-        IF ( Nrain>0 ) Precip = 0.0
-        Rain_day = 0
-        IF ( Ntemp>0 ) THEN
-          Tmax = 0.0
-          Tmin = 0.0
-        ENDIF
-        IF ( Nsol>0 ) Solrad = 0.0
-        IF ( Nevap>0 ) Pan_evap = 0.0
-        IF ( Nsnow>0 ) Snowdepth = 0.0
-        IF ( Nlakeelev>0 ) Lake_elev = 0.0
-        IF ( Nratetbl>0 ) Gate_ht = 0.0
-        IF ( Nhumid>0 ) Humidity = 0.0
-        IF ( Nwind>0 ) Wind_speed = 0.0
+      IF ( Nobs>0 ) THEN
+        Runoff = 0.0
+        Streamflow_cfs = 0.0D0
+        Streamflow_cms = 0.0D0
       ENDIF
+      IF ( Nrain>0 ) Precip = 0.0
+      Rain_day = OFF
+      IF ( Ntemp>0 ) THEN
+        Tmax = 0.0
+        Tmin = 0.0
+      ENDIF
+      IF ( Nsol>0 ) Solrad = 0.0
+      IF ( Nevap>0 ) Pan_evap = 0.0
+      IF ( Nsnow>0 ) Snowdepth = 0.0
+      IF ( Nlakeelev>0 ) Lake_elev = 0.0
+      IF ( Nratetbl>0 ) Gate_ht = 0.0
+      IF ( Nhumid>0 ) Humidity = 0.0
+      IF ( Nwind>0 ) Wind_speed = 0.0
 
       END FUNCTION obsinit
 
@@ -285,11 +280,12 @@
 !     obsrun - runs obs module
 ! **********************************************************************
       INTEGER FUNCTION obsrun()
-      USE PRMS_OBS
-      USE PRMS_MODULE, ONLY: Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap
+      USE PRMS_CONSTANTS, ONLY: CMS, CFS2CMS_CONV, ACTIVE
+      USE PRMS_MODULE, ONLY: Nratetbl, Ntemp, Nrain, Nsol, Nobs, Nevap, Nsnow, &
+                             Nowyear, Nowmonth, Nowday, forcing_check_flag
       USE PRMS_MODULE, ONLY: NmaxPrecipObs                                                      ! PJT - 2018Jan03 - Sub-daily precip inputs
-      USE PRMS_BASIN, ONLY: CFS2CMS_CONV
-      USE PRMS_SET_TIME, ONLY: Nowmonth
+      USE PRMS_OBS
+      USE PRMS_CLIMATEVARS, ONLY: Ppt_zero_thresh
       IMPLICIT NONE
 ! Functions
       INTRINSIC DBLE
@@ -307,7 +303,7 @@
 
       IF ( Nobs>0 ) THEN
         IF ( readvar(MODNAME, 'runoff')/=0 ) CALL read_error(9, 'runoff')
-        IF ( Runoff_units==1 ) THEN
+        IF ( Runoff_units==CMS ) THEN
           DO i = 1, Nobs
             Streamflow_cms(i) = DBLE( Runoff(i) )
             Streamflow_cfs(i) = Streamflow_cms(i)/CFS2CMS_CONV
@@ -322,11 +318,32 @@
 
       IF ( Nrain>0 ) THEN
         IF ( readvar(MODNAME, 'precip')/=0 ) CALL read_error(9, 'precip')
+        IF ( Ppt_zero_thresh>0.0 ) THEN
+          DO i = 1, Nrain
+            IF ( Precip(i)<Ppt_zero_thresh ) Precip(i) = 0.0
+          ENDDO
+        ENDIF
       ENDIF
 
       IF ( Ntemp>0 ) THEN
         IF ( readvar(MODNAME, 'tmax')/=0 ) CALL read_error(9, 'tmax')
         IF ( readvar(MODNAME, 'tmin')/=0 ) CALL read_error(9, 'tmin')
+        IF ( forcing_check_flag == ACTIVE ) THEN
+          DO i = 1, Ntemp
+            IF ( Tmin(i) < -98 .OR. Tmax(i) < -98 ) CYCLE
+            IF ( Tmin(i) > Tmax(i) ) THEN
+              PRINT *, 'WARNING, observed tmin > tmax: HRU, date, tmin, tmax:', &
+                       i, Nowyear, Nowmonth, Nowday, Tmin(i), Tmax(i)
+!              WRITE ( 862, * ) 'WARNING, observed tmin > tmax, swapped fort_866 and fort_867: HRU, date, tmin, tmax:', &
+!                               i, Nowyear, Nowmonth, Nowday, Tmin(i), Tmax(i)
+!              foo = Tmax(i)
+!              Tmax(i) = Tmin(i)
+!              Tmin(i) = foo
+            ENDIF
+          ENDDO
+!          WRITE ( 866,  '(I4,2I3,3I2,22F8.2)' ) Nowyear, Nowmonth, Nowday, 0, 0, 0, (Tmax(i), i=1,Ntemp)
+!          WRITE ( 867, '(I4,2I3,3I2,22F8.2)' ) Nowyear, Nowmonth, Nowday, 0, 0, 0, (Tmin(i), i=1,Ntemp)
+        ENDIF
       ENDIF
 
       IF ( Nsol>0 ) THEN
@@ -362,8 +379,8 @@
       IF ( Nwind>0 ) THEN
         IF ( readvar(MODNAME, 'wind_speed')/=0 ) CALL read_error(9, 'wind_speed')
       ENDIF
-      
-      !If specified, check for sub-daily precip values in the DATA file(s)                  ! PJT - 2018Jan03 - Sub-daily precip inputs  (Start)
+
+      !If specified, check for sub-daily precip values in the DATA file(s)                  ! PJT begin - 2018Jan03 - Sub-daily precip inputs  (Start)
       IF ( NmaxPrecipObs>0 ) THEN                                                           ! PJT - 2018Jan03
           
           !Clear the subdaily arrays
@@ -434,83 +451,8 @@
                 ENDDO
             ENDDO
                                                                                             ! PJT - 2018Jan03
-          ENDIF                                                                             ! PJT - 2018Jan03 - Sub-daily precip inputs  (End)
+          ENDIF                                                                             ! PJT end - 2018Jan03 - Sub-daily precip inputs  (End)
 
       ENDIF
-      
+ 
       END FUNCTION obsrun
-
-!***********************************************************************
-!     obs_restart - write or read obs restart file
-!***********************************************************************
-      SUBROUTINE obs_restart(In_out)
-      USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit, Nrain, Ntemp, Nsol, Nratetbl, Nobs, Nevap
-      USE PRMS_OBS
-      IMPLICIT NONE
-      ! Argument
-      INTEGER, INTENT(IN) :: In_out
-      EXTERNAL check_restart, check_restart_dimen
-      ! Local Variables
-      INTEGER :: ierr, nrain_test, ntemp_test, nobs_test, nsol_test, nevap_test, nlakeelev_test
-      INTEGER :: nsnow_test, nhumid_test, nwind_test, nratetbl_test
-      CHARACTER(LEN=3) :: module_name
-!***********************************************************************
-      IF ( In_out==0 ) THEN
-        WRITE ( Restart_outunit ) MODNAME
-        WRITE ( Restart_outunit ) Nrain, Ntemp, Nobs, Nsol, Nevap, &
-     &          Nsnow, Nhumid, Nwind, Nratetbl, Nlakeelev
-        IF ( Nrain>0 ) WRITE ( Restart_outunit ) Precip
-        IF ( Ntemp>0 ) THEN
-          WRITE ( Restart_outunit ) Tmax
-          WRITE ( Restart_outunit ) Tmin
-        ENDIF
-        IF ( Nobs>0 ) THEN
-          WRITE ( Restart_outunit ) Runoff
-          WRITE ( Restart_outunit ) Streamflow_cfs
-          WRITE ( Restart_outunit ) Streamflow_cms
-        ENDIF
-        IF ( Nsol>0 ) WRITE ( Restart_outunit ) Solrad
-        IF ( Nevap>0 ) WRITE ( Restart_outunit ) Pan_evap
-        IF ( Nsnow>0 ) WRITE ( Restart_outunit ) Snowdepth
-        IF ( Nhumid>0 ) WRITE ( Restart_outunit ) Humidity
-        IF ( Nwind>0 ) WRITE ( Restart_outunit ) Wind_speed
-        IF ( Rain_flag==1 ) WRITE ( Restart_outunit ) Rain_day
-        IF ( Nratetbl>0 ) WRITE ( Restart_outunit ) Gate_ht
-        IF ( Nlakeelev>0 ) WRITE ( Restart_outunit ) Lake_elev
-      ELSE
-        READ ( Restart_inunit ) module_name
-        CALL check_restart(MODNAME, module_name)
-        READ ( Restart_inunit ) nrain_test, ntemp_test, nobs_test, nsol_test, nevap_test, &
-     &         nsnow_test, nhumid_test, nwind_test, nratetbl_test, nlakeelev_test
-        ierr = 0
-        CALL check_restart_dimen('nrain', nrain_test, Nrain, ierr)
-        CALL check_restart_dimen('ntemp', ntemp_test, Ntemp, ierr)
-        CALL check_restart_dimen('nobs', nobs_test, Nobs, ierr)
-        CALL check_restart_dimen('nsol', nsol_test, Nsol, ierr)
-        CALL check_restart_dimen('nevap', nevap_test, Nevap, ierr)
-        CALL check_restart_dimen('nsnow', nsnow_test, Nsnow, ierr)
-        CALL check_restart_dimen('nhumid', nhumid_test, Nhumid, ierr)
-        CALL check_restart_dimen('nwind', nwind_test, Nwind, ierr)
-        CALL check_restart_dimen('nratetbl', nratetbl_test, Nratetbl, ierr)
-        CALL check_restart_dimen('nlakeelev', nlakeelev_test, Nlakeelev, ierr)
-        IF ( ierr==1 ) STOP
-        IF ( Nrain>0 ) READ ( Restart_inunit ) Precip
-        IF ( Ntemp>0 ) THEN
-          READ ( Restart_inunit ) Tmax
-          READ ( Restart_inunit ) Tmin
-        ENDIF
-        IF ( Nobs>0 ) THEN
-          READ ( Restart_inunit ) Runoff
-          READ ( Restart_inunit ) Streamflow_cfs
-          READ ( Restart_inunit ) Streamflow_cms
-        ENDIF
-        IF ( Nsol>0 ) READ ( Restart_inunit ) Solrad
-        IF ( Nevap>0 ) READ ( Restart_inunit ) Pan_evap
-        IF ( Nsnow>0 ) READ ( Restart_inunit ) Snowdepth
-        IF ( Nhumid>0 ) READ ( Restart_inunit ) Humidity
-        IF ( Nwind>0 ) READ ( Restart_inunit ) Wind_speed
-        IF ( Rain_flag==1 ) READ ( Restart_inunit ) Rain_day
-        IF ( Nratetbl>0 ) READ ( Restart_inunit ) Gate_ht
-        IF ( Nlakeelev>0 ) READ ( Restart_inunit ) Lake_elev
-      ENDIF
-      END SUBROUTINE obs_restart

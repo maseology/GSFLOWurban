@@ -5,8 +5,11 @@
       MODULE PRMS_BASINSUM
       IMPLICIT NONE
 !   Local Variables
+      character(len=*), parameter :: MODDESC = 'Output Summary'
+      character(len=9), parameter :: MODNAME = 'basin_sum'
+      character(len=*), parameter :: Version_basin_sum = '2021-08-13'
+
       INTEGER, SAVE :: BALUNT, Totdays
-      CHARACTER(LEN=9), SAVE :: MODNAME
       INTEGER, SAVE :: Header_prt, Endjday
       CHARACTER(LEN=32) :: Buffer32
       CHARACTER(LEN=40) :: Buffer40
@@ -58,7 +61,8 @@
 !     Main basin_sum routine
 !***********************************************************************
       INTEGER FUNCTION basin_sum()
-      USE PRMS_MODULE, ONLY: Process, Save_vars_to_file
+      USE PRMS_CONSTANTS, ONLY: RUN, DECL, INIT, CLEAN, ACTIVE, OFF, SAVE_INIT, READ_INIT
+      USE PRMS_MODULE, ONLY: Process_flag, Save_vars_to_file, Init_vars_from_file
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: sumbdecl, sumbinit, sumbrun
@@ -66,14 +70,15 @@
 !***********************************************************************
       basin_sum = 0
 
-      IF ( Process(:3)=='run' ) THEN
+      IF ( Process_flag==RUN ) THEN
         basin_sum = sumbrun()
-      ELSEIF ( Process(:4)=='decl' ) THEN
+      ELSEIF ( Process_flag==DECL ) THEN
         basin_sum = sumbdecl()
-      ELSEIF ( Process(:4)=='init' ) THEN
+      ELSEIF ( Process_flag==INIT ) THEN
+        IF ( Init_vars_from_file>OFF ) CALL basin_sum_restart(READ_INIT)
         basin_sum = sumbinit()
-      ELSEIF ( Process(:5)=='clean' ) THEN
-        IF ( Save_vars_to_file==1 ) CALL basin_sum_restart(0)
+      ELSEIF ( Process_flag==CLEAN ) THEN
+        IF ( Save_vars_to_file==ACTIVE ) CALL basin_sum_restart(SAVE_INIT)
       ENDIF
 
       END FUNCTION basin_sum
@@ -84,20 +89,17 @@
 !     print_type, print_freq, outlet_sta
 !***********************************************************************
       INTEGER FUNCTION sumbdecl()
+      USE PRMS_CONSTANTS, ONLY: DOCUMENTATION
+      USE PRMS_MODULE, ONLY: Nhru, Nobs, Model
       USE PRMS_BASINSUM
-      USE PRMS_MODULE, ONLY: Model, Nhru, Nobs
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: declparam, declvar
-      EXTERNAL read_error, print_module
-! Local Variables
-      CHARACTER(LEN=80), SAVE :: Version_basin_sum
+      EXTERNAL :: read_error, print_module
 !***********************************************************************
       sumbdecl = 0
 
-      Version_basin_sum = 'basin_sum.f90 2017-10-21 14:18:00Z'
-      CALL print_module(Version_basin_sum, 'Summary                     ', 90)
-      MODNAME = 'basin_sum'
+      CALL print_module(MODDESC, MODNAME, Version_basin_sum)
 
       IF ( declvar(MODNAME, 'last_basin_stor', 'one', 1, 'double', &
      &     'Basin area-weighted average storage in all water storage reservoirs from previous time step', &
@@ -200,7 +202,7 @@
      &     'inches', Basin_intcp_evap_tot)/=0 ) CALL read_error(3, 'basin_intcp_evap_tot')
 
 ! declare parameters
-      IF ( Nobs>0 .OR. Model==99 ) THEN
+      IF ( Nobs>0 .OR. Model==DOCUMENTATION ) THEN
         IF ( declparam(MODNAME, 'outlet_sta', 'one', 'integer', &
      &       '0', 'bounded', 'nobs', &
      &       'Index of measurement station to use for basin outlet', &
@@ -296,11 +298,11 @@
      &     'inches', Hru_et_yr)/=0 ) CALL read_error(3, 'hru_et_yr')
 
       IF ( declvar(MODNAME, 'basin_runoff_ratio_mo', 'one', 1, 'double', &
-     &     'Monthly area-weighted average discharge/precipitation', &
+     &     'Monthly area-weighted average discharge/precipitation ratio', &
      &     'decimal fraction', Basin_runoff_ratio_mo)/=0 ) CALL read_error(3, 'basin_runoff_ratio_mo')
 
       IF ( declvar(MODNAME, 'basin_runoff_ratio', 'one', 1, 'double', &
-     &     'Basin area-weighted average discharge/precipitation', &
+     &     'Basin area-weighted average discharge/precipitation ratio', &
      &     'decimal fraction', Basin_runoff_ratio)/=0 ) CALL read_error(3, 'basin_runoff_ratio')
 
       END FUNCTION sumbdecl
@@ -309,17 +311,19 @@
 !     sumbinit - Initialize basinsum module - get parameter values
 !***********************************************************************
       INTEGER FUNCTION sumbinit()
+      USE PRMS_CONSTANTS, ONLY: OFF
+      USE PRMS_MODULE, ONLY: Nobs, Init_vars_from_file, Print_debug
       USE PRMS_BASINSUM
-      USE PRMS_MODULE, ONLY: Print_debug, Nobs, Init_vars_from_file
       USE PRMS_FLOWVARS, ONLY: Basin_soil_moist, Basin_ssstor, Basin_lake_stor
       USE PRMS_INTCP, ONLY: Basin_intcp_stor
       USE PRMS_SNOW, ONLY: Basin_pweqv
       USE PRMS_SRUNOFF, ONLY: Basin_imperv_stor, Basin_dprst_volcl, Basin_dprst_volop
       USE PRMS_GWFLOW, ONLY: Basin_gwstor
       IMPLICIT NONE
-      INTRINSIC MAX, MOD
+! Functions
+      INTRINSIC :: MAX, MOD
       INTEGER, EXTERNAL :: getparam, julian_day
-      EXTERNAL :: header_print, read_error, write_outfile, basin_sum_restart, PRMS_open_module_file
+      EXTERNAL :: header_print, read_error, write_outfile, PRMS_open_module_file
 ! Local Variables
       INTEGER :: pftemp
 !***********************************************************************
@@ -337,9 +341,7 @@
       IF ( getparam(MODNAME, 'print_freq', 1, 'integer', Print_freq) &
      &     /=0 ) CALL read_error(2, 'print_freq')
 
-      IF ( Init_vars_from_file==1 ) THEN
-        CALL basin_sum_restart(1)
-      ELSE
+      IF ( Init_vars_from_file==OFF ) THEN
 !  Zero stuff out when Timestep = 0
         Watbal_sum = 0.0D0
 
@@ -359,7 +361,6 @@
         Basin_sroff_mo = 0.0D0
         Basin_stflow_mo = 0.0D0
         Obsq_inches_mo = 0.0D0
-        Basin_runoff_ratio = 0.0D0
         Basin_runoff_ratio_mo = 0.0D0
         Basin_lakeevap_mo = 0.0D0
 
@@ -399,10 +400,11 @@
         Obsq_inches_tot = 0.0D0
         Hru_et_yr = 0.0D0
         Totdays = 0
-        Obsq_inches = 0.0D0
         Basin_storage = 0.0D0
         Basin_storvol = 0.0D0
       ENDIF
+      Obsq_inches = 0.0D0
+      Basin_runoff_ratio = 0.0D0
 
 !******Set daily print switch
       IF ( Print_freq>7 ) THEN
@@ -445,6 +447,7 @@
      &                Basin_gwstor + Basin_ssstor + Basin_pweqv + &
      &                Basin_imperv_stor + Basin_lake_stor + &
      &                Basin_dprst_volop + Basin_dprst_volcl
+!glacier storage not known at start
 
       IF ( Print_freq/=0 ) THEN
         CALL header_print(Print_type)
@@ -472,24 +475,26 @@
 !     sumbrun - Computes summary values
 !***********************************************************************
       INTEGER FUNCTION sumbrun()
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, strmflow_muskingum_module, strmflow_muskingum_lake_module, strmflow_muskingum_mann_module
+      USE PRMS_MODULE, ONLY: Nobs, Print_debug, End_year, Strmflow_flag, Glacier_flag, Nowyear, Nowmonth, Nowday
       USE PRMS_BASINSUM
-      USE PRMS_MODULE, ONLY: Print_debug, Nobs, End_year, Strmflow_flag
       USE PRMS_BASIN, ONLY: Active_area, Active_hrus, Hru_route_order
       USE PRMS_FLOWVARS, ONLY: Basin_ssflow, Basin_lakeevap, &
-     &    Basin_actet, Basin_perv_et, Basin_swale_et, Hru_actet, &
+     &    Basin_actet, Basin_perv_et, Basin_swale_et, Hru_actet, Basin_sroff, &
      &    Basin_ssstor, Basin_soil_moist, Basin_cfs, Basin_stflow_out, Basin_lake_stor
-      USE PRMS_CLIMATEVARS, ONLY: Basin_potsw, Basin_ppt, Basin_potet, Basin_tmax, Basin_tmin
-      USE PRMS_SET_TIME, ONLY: Jday, Modays, Yrdays, Julwater, Nowyear, Nowmonth, Nowday, Cfs2inches
+      USE PRMS_CLIMATEVARS, ONLY: Basin_swrad, Basin_ppt, Basin_potet, Basin_tmax, Basin_tmin
+      USE PRMS_SET_TIME, ONLY: Jday, Modays, Yrdays, Julwater, Cfs2inches
       USE PRMS_OBS, ONLY: Streamflow_cfs
       USE PRMS_GWFLOW, ONLY: Basin_gwflow, Basin_gwstor, Basin_gwsink, Basin_gwstor_minarea_wb
       USE PRMS_INTCP, ONLY: Basin_intcp_evap, Basin_intcp_stor, Basin_net_ppt
       USE PRMS_SNOW, ONLY: Basin_snowmelt, Basin_pweqv, Basin_snowevap
-      USE PRMS_SRUNOFF, ONLY: Basin_imperv_stor, Basin_imperv_evap, Basin_sroff, &
+      USE PRMS_GLACR, ONLY: Basin_gl_storage
+      USE PRMS_SRUNOFF, ONLY: Basin_imperv_stor, Basin_imperv_evap, &
      &    Basin_dprst_evap, Basin_dprst_volcl, Basin_dprst_volop
-      USE PRMS_MUSKINGUM, ONLY: Basin_segment_storage
+      USE PRMS_ROUTING, ONLY: Basin_segment_storage
       IMPLICIT NONE
 ! Functions
-      INTRINSIC SNGL, ABS, ALOG, DBLE
+      INTRINSIC :: SNGL, ABS, ALOG, DBLE
       EXTERNAL :: header_print, write_outfile
 ! Local variables
       INTEGER :: i, j, wyday, endrun, monthdays
@@ -511,7 +516,12 @@
       Basin_storage = Basin_soil_moist + Basin_intcp_stor + &
      &                Basin_gwstor + Basin_ssstor + Basin_pweqv + &
      &                Basin_imperv_stor + Basin_lake_stor + Basin_dprst_volop + Basin_dprst_volcl
-      IF ( Strmflow_flag==4 ) Basin_storage = Basin_storage + Basin_segment_storage
+! Basin_storage doesn't include any processes on glacier
+! In glacier module, Basin_gl_storstart is an estimate for starting glacier volume, but only
+!   includes glaciers that have depth estimates and these are known to be iffy
+      IF ( Glacier_flag==ACTIVE ) Basin_storage = Basin_storage + Basin_gl_storage
+      IF ( Strmflow_flag==strmflow_muskingum_lake_module .OR. Strmflow_flag==strmflow_muskingum_module &
+     &     .OR. Strmflow_flag==strmflow_muskingum_mann_module) Basin_storage = Basin_storage + Basin_segment_storage
 
 ! volume calculation for storage
       Basin_storvol = Basin_storage*Active_area
@@ -562,7 +572,7 @@
           CALL write_outfile(Buffer80)
 
         ELSEIF ( Print_type==2 ) THEN
-          WRITE ( Buffer151, 9001 ) Nowyear, Nowmonth, Nowday, Basin_potsw, &
+          WRITE ( Buffer151, 9001 ) Nowyear, Nowmonth, Nowday, Basin_swrad, &
      &            Basin_tmax, Basin_tmin, Basin_ppt, Basin_net_ppt, &
      &            Basin_intcp_stor, Basin_intcp_evap, Basin_potet, &
      &            Basin_actet, Basin_soil_moist, Basin_pweqv, &
@@ -602,7 +612,7 @@
       Basin_cfs_mo = Basin_cfs_mo + Basin_cfs
       Basin_ppt_mo = Basin_ppt_mo + Basin_ppt
       Basin_net_ppt_mo = Basin_net_ppt_mo + Basin_net_ppt
-      Basin_swrad_mo = Basin_swrad_mo + Basin_potsw
+      Basin_swrad_mo = Basin_swrad_mo + Basin_swrad
       Basin_max_temp_mo = Basin_max_temp_mo + Basin_tmax
       Basin_min_temp_mo = Basin_min_temp_mo + Basin_tmin
       Basin_intcp_evap_mo = Basin_intcp_evap_mo + Basin_intcp_evap
@@ -664,7 +674,7 @@
         Basin_cfs_yr = Basin_cfs_yr + Basin_cfs
         Basin_ppt_yr = Basin_ppt_yr + Basin_ppt
         Basin_net_ppt_yr = Basin_net_ppt_yr + Basin_net_ppt
-        Basin_swrad_yr = Basin_swrad_yr + Basin_potsw
+        Basin_swrad_yr = Basin_swrad_yr + Basin_swrad
         Basin_max_temp_yr = Basin_max_temp_yr + Basin_tmax
         Basin_min_temp_yr = Basin_min_temp_yr + Basin_tmin
         Basin_intcp_evap_yr = Basin_intcp_evap_yr + Basin_intcp_evap
@@ -754,7 +764,7 @@
         Basin_cfs_tot = Basin_cfs_tot + Basin_cfs
         Basin_ppt_tot = Basin_ppt_tot + Basin_ppt
         Basin_net_ppt_tot = Basin_net_ppt_tot + Basin_net_ppt
-        Basin_swrad_tot = Basin_swrad_tot + Basin_potsw
+        Basin_swrad_tot = Basin_swrad_tot + Basin_swrad
         Basin_max_temp_tot = Basin_max_temp_tot + Basin_tmax
         Basin_min_temp_tot = Basin_min_temp_tot + Basin_tmin
         Basin_intcp_evap_tot = Basin_intcp_evap_tot + Basin_intcp_evap
@@ -814,7 +824,7 @@
       SUBROUTINE header_print(Print_type)
       USE PRMS_BASINSUM, ONLY: DASHS, Buffer80, Print_freq, Header_prt
       IMPLICIT NONE
-      EXTERNAL write_outfile
+      EXTERNAL :: write_outfile
 ! Arguments
       INTEGER, INTENT(IN) :: Print_type
 !***********************************************************************
@@ -861,16 +871,18 @@
 !     Write or read restart file
 !***********************************************************************
       SUBROUTINE basin_sum_restart(In_out)
+      USE PRMS_CONSTANTS, ONLY: SAVE_INIT
       USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit
       USE PRMS_BASINSUM
       IMPLICIT NONE
       ! Argument
       INTEGER, INTENT(IN) :: In_out
-      EXTERNAL check_restart
+      ! Functions
+      EXTERNAL :: check_restart
       ! Local Variable
       CHARACTER(LEN=9) :: module_name
 !***********************************************************************
-      IF ( In_out==0 ) THEN
+      IF ( In_out==SAVE_INIT ) THEN
         WRITE ( Restart_outunit ) MODNAME
         WRITE ( Restart_outunit ) Totdays, Obs_runoff_mo, Obs_runoff_yr, Obs_runoff_tot, Watbal_sum
         WRITE ( Restart_outunit ) Basin_cfs_mo, Basin_cfs_yr, Basin_cfs_tot, Basin_net_ppt_yr, Basin_net_ppt_tot
@@ -883,7 +895,7 @@
         WRITE ( Restart_outunit ) Basin_net_ppt_mo, Obsq_inches_mo, Basin_max_temp_mo, Basin_min_temp_mo, Basin_actet_mo
         WRITE ( Restart_outunit ) Basin_snowmelt_mo, Basin_gwflow_mo, Basin_sroff_mo, Basin_stflow_mo
         WRITE ( Restart_outunit ) Basin_intcp_evap_mo, Basin_storage, Basin_storvol, Basin_potet_mo
-        WRITE ( Restart_outunit ) Basin_ssflow_mo, Basin_ppt_mo, Obsq_inches, Basin_runoff_ratio, Basin_runoff_ratio_mo
+        WRITE ( Restart_outunit ) Basin_ssflow_mo, Basin_ppt_mo, Basin_runoff_ratio_mo
         WRITE ( Restart_outunit ) Hru_et_yr
       ELSE
         READ ( Restart_inunit ) module_name
@@ -899,7 +911,7 @@
         READ ( Restart_inunit ) Basin_net_ppt_mo, Obsq_inches_mo, Basin_max_temp_mo, Basin_min_temp_mo, Basin_actet_mo
         READ ( Restart_inunit ) Basin_snowmelt_mo, Basin_gwflow_mo, Basin_sroff_mo, Basin_stflow_mo
         READ ( Restart_inunit ) Basin_intcp_evap_mo, Basin_storage, Basin_storvol, Basin_potet_mo
-        READ ( Restart_inunit ) Basin_ssflow_mo, Basin_ppt_mo, Obsq_inches, Basin_runoff_ratio, Basin_runoff_ratio_mo
+        READ ( Restart_inunit ) Basin_ssflow_mo, Basin_ppt_mo, Basin_runoff_ratio_mo
         READ ( Restart_inunit ) Hru_et_yr
       ENDIF
       END SUBROUTINE basin_sum_restart

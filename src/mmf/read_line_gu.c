@@ -35,13 +35,13 @@ static double   prevjt = -1.0;
 */
 
 
-/**************************************************************************			// PJT - 2018Jan03 - Mod to Support Rainfall Intensity
+/**************************************************************************			               // PJT  begin - 2018Jan03 - Mod to Support Rainfall Intensity
 * read_line_() is called from Fortran, read_line()
 */
 
 long read_line_(void) {
 	read_line();
-}																					// !PJT - 2018Jan03 - Mod to Support Rainfall Intensity
+}																					                                    // PJT end
 
 
 /**6**************** EXPORTED FUNCTION DEFINITIONS ********************/
@@ -57,7 +57,7 @@ long read_line (void) {
    /*static char err[80];*/
 
    char   *start_point, *end_point;
-   float   initial_deltat;
+   //float   initial_deltat;
    long   i,j;
    static int   start_of_data;
    static long	data_eof_flag;
@@ -65,7 +65,9 @@ long read_line (void) {
    FILE_DATA   *cur_fd;
    char   *err_ptr;
    static char *line = NULL;
-  
+   static long silent_flag;
+   silent_flag = *control_lvar("print_debug");
+
    if (line == NULL) {
 	   line = (char *) umalloc(max_data_ln_len * sizeof(char));
    }
@@ -73,7 +75,7 @@ long read_line (void) {
 /*
 **   get initial delta-t from control data base
 */
-   initial_deltat = *control_fvar("initial_deltat");
+ //  initial_deltat = *control_fvar("initial_deltat");
    data_eof_flag = *control_lvar ("ignore_data_file_end");
 
    if (Mnsteps == 0) {
@@ -97,8 +99,10 @@ long read_line (void) {
 **  9999 in the year field is the code for EOF. 
 */
       if (cur_fd->time.year == 9999) {
-		  (void)fprintf (stderr,"\nWARNING, date of end_time reached the last date in the Data File \n");
-		  (void)fprintf(stderr, "         simulation stopped on: %ld %ld %ld \n", Mnowtime->year, Mnowtime->month, Mnowtime->day);
+		  if (silent_flag > -2) {
+			  (void)fprintf(stderr, "\nWARNING, date of end_time reached the last date in the Data File \n");
+			  (void)fprintf(stderr, "         simulation stopped on: %ld %ld %ld \n", Mnowtime->year, Mnowtime->month, Mnowtime->day);
+		  }
 	      return ENDOFFILE;
 	  }
 
@@ -168,10 +172,11 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
       if (Mnowtime->jt >= Mstrttime->jt) {
          if (start_of_data) {
             start_of_data = 0;
-            Mprevjt = Mnowtime->jt - (double)(initial_deltat / 24.0);
+            //Mprevjt = Mnowtime->jt - (double)(initial_deltat / 24.0);
+			Mprevjt = Mnowtime->jt - (double)(1.0);
          }
 
-         (void)strcpy (line, cur_fd->start_of_data);
+         (void)strncpy (line, cur_fd->start_of_data, max_data_ln_len);
          Mnsteps++;
 /*
 **  DANGER -- Mprevjt must be hacked if starting from var init file.
@@ -192,11 +197,11 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
 			return (ERROR_TIME);
 		 }
 
-         if ((Mnowtime->jt - Mprevjt) < 0.0000115) {		// PJT - FYI, 0.0000115 days is .9936 seconds (1 sec is the minimum possible timespan)
+         if ((Mnowtime->jt - Mprevjt) < 0.0000115) {		                                          // PJT - FYI, 0.0000115 days is .9936 seconds (1 sec is the minimum possible timespan)
 /*
 ** DANGER This hack is to come out of the storm
 */
-           // (void)fprintf (stderr,"read_line:  comming out of storm. dt = 1 day\n");		   // PJT - Commented out, 2019Jan04 (lets not tie up the console with these details)
+            // (void)fprintf (stderr,"read_line:  coming out of storm. dt = 1 day\n");		         // PJT - Commented out, 2019Jan04 (lets not tie up the console with these details)
             Mdeltat = 1.0;
             Mprevjt = Mnowtime->jt - Mdeltat;
 
@@ -253,7 +258,7 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
 
          Mprevjt = Mnowtime->jt;
 
-         if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {   //pjt - we ask for the next line in THIS FILE, not looking for others files that may be in play
+         if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {                               // PJT - we ask for the next line in THIS FILE, not looking for others files that may be in play
             fclose (cur_fd->fp);
             cur_fd->fp = NULL;
             cur_fd->time.year = 9999;
@@ -269,12 +274,10 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
             }
          }
 
-		 //PJT - 2019Jan11  - Call FILE_with_next_ts to ensure we're grabbing the correct file (and the correct deltim & delnext values) when multiple files are specified
-		 /*
+		 /* PJT - 2019Jan11  - Call FILE_with_next_ts to ensure we're grabbing the correct file (and the correct deltim & delnext values) when multiple files are specified
 		 **  Load cur_fd with the data for the next time step.
 		 */
-		 cur_fd = FILE_with_next_ts();
-		 //PJT - 2019Jan11
+		 cur_fd = FILE_with_next_ts();                                                               // PJT end
 
 /*
 **   Copy time from current file into global next time structure
@@ -288,7 +291,7 @@ cur_fd->time = {year = 1956, month = 2, day = 19, hour = 0, min = 0, sec = 0,
             Mnexttime->sec = cur_fd->time.sec;
             Mnexttime->jd = cur_fd->time.jd;
             Mnexttime->jt = cur_fd->time.jt;
-            Mdeltanext = Mnexttime->jt - Mnowtime->jt;  //pjt - the interval between the current and next data line
+            Mdeltanext = Mnexttime->jt - Mnowtime->jt;                                             // PJT - the interval between the current and next data line
          }
          return (0);
       } else {
@@ -363,7 +366,7 @@ char *DATA_read_init (void) {
    for (i = 0; i < num_data_files; i++) {
       (fd[i])->name = strdup (fname[i]);
       if (!((fd[i])->fp = fopen (fname[i], "r"))) {
-         (void)sprintf (err, "DATA_read_init: can't open data file %s\n",
+         (void)snprintf (err, 256, "DATA_read_init: can't open data file %s\n",
             fname[i]);
          return (err);
       }
@@ -371,7 +374,7 @@ char *DATA_read_init (void) {
       fgets (line, max_data_ln_len, (fd[i])->fp);
       while (strncmp (line, "####", 4)) {
          if (!(fgets (line, max_data_ln_len, (fd[i])->fp))) {
-               (void)sprintf (buf, "DATA_read_init - Spacing fwd to data - Check format of file %s.", fname[i]);
+               (void)snprintf (buf, 256, "DATA_read_init - Spacing fwd to data - Check format of file %s.", fname[i]);
                return (buf);
             }
       }
@@ -419,11 +422,11 @@ char *READ_data_info (void) {
 */
    for (i = 0; i < num_data_files; i++) {
       if (stat (fname[i], &stbuf) == -1) {
-         (void)sprintf (err, "Reading Data Info: Can't open data file %s\n",
+         (void)snprintf (err, 256, "Reading Data Info: Can't open data file %s\n",
             fname[i]);
          return (err);
       } else if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-         (void)sprintf (err, "Reading Data Info: Can't open data file %s\n",
+         (void)snprintf (err, 256, "Reading Data Info: Can't open data file %s\n",
             fname[i]);
          return (err);
       }
@@ -434,7 +437,7 @@ char *READ_data_info (void) {
    for (i = 0; i < num_data_files; i++) {
       lfd.name = strdup (fname[i]);
       if (!(lfd.fp = fopen (fname[i], "r"))) {
-         (void)sprintf (err, "DATA_read_init: can't open data file %s\n",
+         (void)snprintf (err, 256, "DATA_read_init: can't open data file %s\n",
             fname[i]);
          return (err);
       }
@@ -530,70 +533,71 @@ FILE_DATA * FILE_with_next_ts (void) {
         fd_ptr = fd[i];  
       if (fd_ptr->time.year != 9999) {
 
-		  //! PJT - 2018Jan11 - Sub-daily precip inputs
-		  //Return the file with the earliest timestamp, the PRMS will sort out what is daily vs sub-daily internally
-		  if (fd_ptr->time.jt < cur_fd->time.jt) {
-			  cur_fd = fd_ptr;
-		  }
-		  //pjt
+         // PJT begin - 2018Jan11 - Sub-daily precip inputs
+	      // Return the file with the earliest timestamp, the PRMS will sort out what is daily vs sub-daily internally
+         if (fd_ptr->time.jt < cur_fd->time.jt) {
+            cur_fd = fd_ptr;
+         }                                                                                         // PJT end
 
-		  //PJT - 2018Jan11 Commented out 
-		  //  We are altering the functionality of this function to return daily values even when sub-daily may be present
-		  //  Allows us to reduce the size of the sub-daily input files by not carrying climatevars we don't need on an hourly
-		  //  basis
-///*
-//**   If two files have the same julian day, assume one is a storm file
-//**   and one is a daily file.  Throw out the daily value.
-//*/
-//         if (fd_ptr->time.jd == cur_fd->time.jd) {
-//            if (fd_ptr->time.jt == cur_fd->time.jt) {
-//               (void)fprintf (stderr,
-//                  "FILE_with_next_ts: The files %s and %s both seem to contain the same storm on %ld - %ld - %ld.\n",
-//                  fd_ptr->name, cur_fd->name, fd_ptr->time.year,
-//                  fd_ptr->time.month, fd_ptr->time.day);
-//
-//            } else if (fd_ptr->time.jt < cur_fd->time.jt) {
-//
-//               Mprevjt = fd_ptr->time.jt;
-//
-//               if (!(fgets (fd_ptr->line, max_data_ln_len, fd_ptr->fp))) {
-//                  fclose (fd_ptr->fp);
-//                      fd_ptr->fp = NULL;
-//                  fd_ptr->time.year = 9999;
-//               } else if (fd_ptr->line[0] == '\n') {
-//                  fclose (fd_ptr->fp);
-//                      fd_ptr->fp = NULL;
-//                  fd_ptr->time.year = 9999;
-//               } else {
-//                  err_ptr = EXTRACT_time (fd_ptr);
-//                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
-//               }
-//
-//
-//            } else {
-//
-//               Mprevjt = cur_fd->time.jt;
-//
-//               if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {
-//                  fclose (cur_fd->fp);
-//                      cur_fd->fp = NULL;
-//                  cur_fd->time.year = 9999;
-//               } else if (cur_fd->line[0] == '\n') {
-//                  fclose (cur_fd->fp);
-//                      cur_fd->fp = NULL;
-//                  cur_fd->time.year = 9999;
-//               } else {
-//                  err_ptr = EXTRACT_time (cur_fd);
-//                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
-//               }
-//
-//               cur_fd = fd_ptr;
-//            }
-//
-//         } else if (fd_ptr->time.jd < cur_fd->time.jd) {
-//            cur_fd = fd_ptr;
-//         }
-		  //PJT - 2018Jan11 Commented out 
+/*
+     PJT - 2018Jan11 Commented out below 
+      We are altering the functionality of this function to return daily values even when sub-daily may be present
+      Allows us to reduce the size of the sub-daily input files by not carrying climatevars we don't need on an hourly
+      basis
+*/         
+/*
+**   If two files have the same julian day, assume one is a storm file
+**   and one is a daily file.  Throw out the daily value.
+*/
+/*         if (fd_ptr->time.jd == cur_fd->time.jd) {                                               // PJT begin
+            if (fd_ptr->time.jt == cur_fd->time.jt) {
+               (void)fprintf (stderr,
+                  "FILE_with_next_ts: The files %s and %s both seem to contain the same storm on %ld - %ld - %ld.\n",
+                  fd_ptr->name, cur_fd->name, fd_ptr->time.year,
+                  fd_ptr->time.month, fd_ptr->time.day);
+
+            } else if (fd_ptr->time.jt < cur_fd->time.jt) {
+
+               Mprevjt = fd_ptr->time.jt;
+
+               if (!(fgets (fd_ptr->line, max_data_ln_len, fd_ptr->fp))) {
+                  fclose (fd_ptr->fp);
+                      fd_ptr->fp = NULL;
+                  fd_ptr->time.year = 9999;
+               } else if (fd_ptr->line[0] == '\n') {
+                  fclose (fd_ptr->fp);
+                      fd_ptr->fp = NULL;
+                  fd_ptr->time.year = 9999;
+               } else {
+                  err_ptr = EXTRACT_time (fd_ptr);
+                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
+               }
+
+
+            } else {
+
+               Mprevjt = cur_fd->time.jt;
+
+               if (!(fgets (cur_fd->line, max_data_ln_len, cur_fd->fp))) {
+                  fclose (cur_fd->fp);
+                      cur_fd->fp = NULL;
+                  cur_fd->time.year = 9999;
+               } else if (cur_fd->line[0] == '\n') {
+                  fclose (cur_fd->fp);
+                      cur_fd->fp = NULL;
+                  cur_fd->time.year = 9999;
+               } else {
+                  err_ptr = EXTRACT_time (cur_fd);
+                  if (err_ptr) (void)fprintf (stderr,"%s\n", err_ptr);
+               }
+
+               cur_fd = fd_ptr;
+            }
+
+        } else if (fd_ptr->time.jd < cur_fd->time.jd) {
+           cur_fd = fd_ptr;
+        } 
+*/                                                                                                 //PJT end - 2018Jan11 Commented out
 
       }
    }
@@ -626,7 +630,7 @@ char * EXTRACT_time (FILE_DATA *data) {
       return (NULL);
    }
 
-   (void)strcpy (line, data->line);
+   (void)strncpy (line, data->line, max_data_ln_len);
 
    start_point = line;
 
@@ -634,13 +638,13 @@ char * EXTRACT_time (FILE_DATA *data) {
    data->time.year = strtol (start_point, &end_point, 10);
 
    if (data->time.year < 1800 || data->time.year > 2200) {
-      (void)sprintf (err_buf, "EXTRACT_time - year %ld out of range.\nline:%s",
+      (void)snprintf (err_buf, max_data_ln_len, "EXTRACT_time - year %ld out of range.\nline:%s",
          data->time.year, data->line);
       return (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE) {
-      (void)sprintf(err_buf, "EXTRACT_time - Decoding year line %s", start_point);
+      (void)snprintf(err_buf, max_data_ln_len, "EXTRACT_time - Decoding year line %s", start_point);
       return (err_buf);
    }
 
@@ -649,13 +653,13 @@ char * EXTRACT_time (FILE_DATA *data) {
    data->time.month = strtol (start_point, &end_point, 10);
 
    if (data->time.month < 1 || data->time.month > 12) {
-      (void)sprintf (err_buf, "EXTRACT_time - month %ld out of range.\nline:%s",
+      (void)snprintf (err_buf, max_data_ln_len, "EXTRACT_time - month %ld out of range.\nline:%s",
          data->time.month, data->line);
       return (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE) {
-      (void)sprintf(err_buf, "EXTRACT_time - Decoding month line %s",start_point);
+      (void)snprintf(err_buf, max_data_ln_len, "EXTRACT_time - Decoding month line %s",start_point);
       return (err_buf);
    }
 
@@ -664,12 +668,12 @@ char * EXTRACT_time (FILE_DATA *data) {
    data->time.day = strtol (start_point, &end_point, 10);
 
    if (data->time.day < 1 || data->time.day > 31) {
-      (void)sprintf (err_buf, "EXTRACT_time - day %ld out of range.\nline:%s",data->time.day, data->line);
+      (void)snprintf (err_buf, max_data_ln_len, "EXTRACT_time - day %ld out of range.\nline:%s",data->time.day, data->line);
       return (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE) {
-      (void)sprintf (err_buf, "Decoding day line %s", start_point);
+      (void)snprintf (err_buf, max_data_ln_len, "Decoding day line %s", start_point);
       return (err_buf);
    }
 
@@ -678,12 +682,12 @@ char * EXTRACT_time (FILE_DATA *data) {
    data->time.hour = strtol(start_point, &end_point, 10);
 
    if (data->time.hour < 0 || data->time.hour > 24) {
-      (void)sprintf(err_buf,"EXTRACT_time - hour %ld out of range.\nline:%s",data->time.hour, data->line);
+      (void)snprintf(err_buf, max_data_ln_len, "EXTRACT_time - hour %ld out of range.\nline:%s",data->time.hour, data->line);
       return  (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE)   {
-      (void)sprintf (err_buf, "Decoding hour line %s", start_point);
+      (void)snprintf (err_buf, max_data_ln_len, "Decoding hour line %s", start_point);
       return (err_buf);
    }
 
@@ -693,13 +697,13 @@ char * EXTRACT_time (FILE_DATA *data) {
 
 
     if (data->time.min < 0 || data->time.min > 59) {
-      (void)sprintf (err_buf, "EXTRACT_time - minute %ld out of range.\nline:%s",
+      (void)snprintf (err_buf, max_data_ln_len, "EXTRACT_time - minute %ld out of range.\nline:%s",
          data->time.min, data->line);
       return (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE) {
-      (void)sprintf (err_buf, "Decoding minute line %s", start_point);
+      (void)snprintf (err_buf, max_data_ln_len, "Decoding minute line %s", start_point);
       return (err_buf);
    }
 
@@ -711,13 +715,13 @@ char * EXTRACT_time (FILE_DATA *data) {
 */
 
    if (data->time.sec < 0 || data->time.min > 59) {
-      (void)sprintf (err_buf, "EXTRACT_time - second %ld out of range.\nline:%s",
+      (void)snprintf (err_buf, max_data_ln_len, "EXTRACT_time - second %ld out of range.\nline:%s",
          data->time.sec, data->line);
       return (err_buf);
    }
 
    if (errno == EDOM || errno == ERANGE) {
-      (void)sprintf (err_buf, "Decoding second line %s\n", start_point);
+      (void)snprintf (err_buf, max_data_ln_len, "Decoding second line %s\n", start_point);
       return (err_buf);
    }
 

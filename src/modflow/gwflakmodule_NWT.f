@@ -2,14 +2,15 @@
 C------OLD USGS VERSION 7.1; JUNE 2006 GWFLAKMODULE; 
 C------UPDATED FOR MF-2005, 1.9 RELEASE, FEBRUARY 6, 2012  
 C------REVISION NUMBER CHANGED TO BE CONSISTENT WITH NWT RELEASE
-C------NEW VERSION NUMBER 1.1.3, 8/01/2017  
+C------NEW VERSION NUMBER 1.1.4, 4/01/2018  
 C------MINOR UPDATES JAN. 2013 (LFK)
-        CHARACTER(LEN=80),PARAMETER ::Version_lak =
-     +'gwf2lak7_NWT.f 2016-07-21 11:42:00Z'
         INTEGER,SAVE,POINTER   ::NLAKES,NLAKESAR,ILKCB,NSSITR,LAKUNIT
         INTEGER,SAVE,POINTER   ::MXLKND,LKNODE,ICMX,NCLS,LWRT,NDV,NTRB,
-     +                           IRDTAB
+     +                           IRDTAB,ISTARTLAK,IGSFLOWLAK
         REAL,   SAVE,POINTER   ::THETA,SSCNCR,SURFDEPTH
+        DOUBLE PRECISION,   SAVE,POINTER   ::RAMP, SMALLTOL
+        REAL,   SAVE, DIMENSION(:),  POINTER :: DEADPOOLVOL,MXLKVOLF,
+     +                                          RELEASABLE_STOR
 Cdep    Added SURFDEPTH  3/3/2009
 Crgn    Added budget variables for GSFLOW CSV file
         REAL,   SAVE,POINTER   ::TOTGWIN_LAK,TOTGWOT_LAK,TOTDELSTOR_LAK
@@ -24,9 +25,9 @@ Crgn    Added budget variables for GSFLOW CSV file
         DOUBLE PRECISION,SAVE,DIMENSION(:), POINTER ::STGNEW,STGOLD,
      +                                        STGITER,VOLOLDD,STGOLD2
         DOUBLE PRECISION,SAVE,DIMENSION(:), POINTER :: RUNF, RUNOFF     !EDM
-        INTEGER,SAVE,                POINTER ::NLKFLWTYP
+        INTEGER,SAVE,                POINTER :: NLKFLWTYP
         CHARACTER*16, SAVE, DIMENSION(:), POINTER :: LKFLOWTYPE
-        REAL,   SAVE, DIMENSION(:),  POINTER ::VOL,FLOB,DSRFOT
+        REAL,   SAVE, DIMENSION(:),  POINTER :: VOL,FLOB,DSRFOT
         DOUBLE PRECISION,   SAVE, DIMENSION(:),  POINTER ::PRCPLK,EVAPLK
         REAL,   SAVE, DIMENSION(:),  POINTER ::BEDLAK
         REAL,   SAVE, DIMENSION(:),  POINTER ::WTHDRW,RNF,CUMRNF
@@ -54,7 +55,7 @@ crgn        REAL,   SAVE, DIMENSION(:),  POINTER ::EVAP,PRECIP,SEEP,SEEP3
         REAL,   SAVE, DIMENSION(:,:),POINTER ::CAUG,CPPT,CLAKINIT
         REAL,   SAVE, DIMENSION(:,:,:),POINTER ::BDLKN1
 Cdep  Added arrays for tracking lake budgets for dry lakes
-        REAL,   SAVE, DIMENSION(:),  POINTER ::EVAPO,FLWIN
+        REAL,   SAVE, DIMENSION(:),  POINTER ::FLWIN
         REAL,   SAVE, DIMENSION(:),  POINTER ::GWRATELIM
 Cdep    Allocate arrays to add runoff from UZF Package
         REAL,   SAVE, DIMENSION(:),  POINTER ::OVRLNDRNF,CUMLNDRNF
@@ -78,9 +79,12 @@ Crsr    Allocate arrays in BD subroutine
       TYPE GWFLAKTYPE
         INTEGER,      POINTER   ::NLAKES,NLAKESAR,ILKCB,NSSITR,LAKUNIT
         INTEGER,      POINTER   ::MXLKND,LKNODE,ICMX,NCLS,LWRT,NDV,NTRB,
-     +                            IRDTAB
+     +                            IRDTAB,ISTARTLAK,IGSFLOWLAK
 Cdep    Added SURFDEPTH 3/3/2009
         REAL,         POINTER   ::THETA,SSCNCR,SURFDEPTH
+        DOUBLE PRECISION,         POINTER   ::RAMP, SMALLTOL
+        REAL,  DIMENSION(:),     POINTER :: DEADPOOLVOL,RELEASABLE_STOR,
+     +                                      MXLKVOLF
 Crgn    Added budget variables for GSFLOW CSV file
         REAL,         POINTER   ::TOTGWIN_LAK,TOTGWOT_LAK,TOTDELSTOR_LAK
         REAL,         POINTER   ::TOTSTOR_LAK,TOTEVAP_LAK,TOTPPT_LAK
@@ -125,7 +129,7 @@ Crgn        REAL,         DIMENSION(:),  POINTER ::EVAP,PRECIP,SEEP,SEEP3
         REAL,         DIMENSION(:,:),POINTER ::CAUG,CPPT,CLAKINIT
         REAL,         DIMENSION(:,:,:),POINTER ::BDLKN1
 Cdep  Added arrays for tracking lake budgets for dry lakes
-        REAL,         DIMENSION(:),  POINTER ::EVAPO,FLWIN
+        REAL,         DIMENSION(:),  POINTER ::FLWIN
         REAL,         DIMENSION(:),  POINTER ::GWRATELIM
 Cdep    Allocate arrays to add runoff from UZF Package
         REAL,         DIMENSION(:),  POINTER ::OVRLNDRNF,CUMLNDRNF

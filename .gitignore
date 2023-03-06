@@ -332,6 +332,7 @@ ASALocalRun/
 
 # MY ADDITIONS
 /bak
+/srcx
 /test
 /doc/extra
 /doc/latex
@@ -339,6 +340,6 @@ ASALocalRun/
 *.rar
 todo.txt
 bugs.txt
-/bin/gsflow_1_2_2_urban_0_5_0_GRA.exe.bak v1
-/bin/gsflow_1_2_2_urban_0_5_0_GRA.exe
 *.lnk
+*.bak
+*.mod

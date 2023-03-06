@@ -44,7 +44,7 @@ void setup_cont (void) {
 /*
 **	GSFLOW control variables
 */
-        decl_control_string ("model_mode", "PRMS");
+        decl_control_string ("model_mode", "GSFLOW5");
         decl_control_string ("modflow_name", "modflow.nam");
         decl_control_string ("precip_module", "precip_1sta");
         decl_control_string ("temp_module", "temp_1sta");
@@ -57,7 +57,10 @@ void setup_cont (void) {
         decl_control_string ("transp_module", "transp_tindex");
         decl_control_string ("gsflow_output_file", "gsflow.out");
         decl_control_string ("gsflow_csv_file", "gsflow.csv");
-		decl_control_string ("creator_email", "unknown");
+		//decl_control_string ("creator_email", "unknown");
+		decl_control_string ("AET_module", "unknown");
+		decl_control_string ("PET_ag_module", "unknown");
+		decl_control_string ("irrigation_area_module", "unknown");
 		decl_control_string ("gw_module", "gwflow");							//PJT - 2019Jan14 - Add control string for PRMS groundwater module
 
 /*
@@ -98,13 +101,29 @@ void setup_cont (void) {
 		lval[0] = 0;
 		decl_control_int_array ("frozen_flag", 1, lval);
 
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("agriculture_soil_flag", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("agriculture_canopy_flag", 1, lval);
+
         lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array ("dprst_flag", 1, lval);
 
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("PRMS_land_iteration_flag", 1, lval);
+
         lval = (long *)umalloc (sizeof (long));
 		lval[0] = 1;
 		decl_control_int_array ("parameter_check_flag", 1, lval);
+
+        lval = (long *)umalloc (sizeof (long));
+		lval[0] = 0;
+		decl_control_int_array ("forcing_check_flag", 1, lval);
 
         lval = (long *)umalloc (sizeof (long));
 		lval[0] = 1;
@@ -182,10 +201,22 @@ void setup_cont (void) {
 		lval[0] = 0;
 		decl_control_int_array ("dyn_dprst_flag", 1, lval);
 
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("dyn_ag_flag", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("dyn_sro_to_dprst_ag_flag", 1, lval);
+
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array ("stream_temp_flag", 1, lval);
 
+		lval = (long *)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("strmtemp_humidity_flag", 1, lval);
+		
 		lval = (long *)umalloc(sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array("stream_temp_shade_flag", 1, lval);
@@ -216,11 +247,23 @@ void setup_cont (void) {
 
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
+		decl_control_int_array ("dprst_transfer_water_use", 1, lval);
+
+		lval = (long *)umalloc (sizeof (long));
+		lval[0] = 0;
+		decl_control_int_array ("dprst_add_water_use", 1, lval);
+
+		lval = (long *)umalloc (sizeof (long));
+		lval[0] = 0;
 		decl_control_int_array ("soilzone_transferON_OFF", 1, lval);
 
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array ("canopy_transferON_OFF", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("outputSelectDatesON_OFF", 1, lval);
 
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
@@ -258,6 +301,14 @@ void setup_cont (void) {
 		lval[0] = 0;
 		decl_control_int_array ("windspeed_cbh_flag", 1, lval);
 
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("albedo_cbh_flag", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("cloud_cover_cbh_flag", 1, lval);
+
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
 		decl_control_int_array ("segmentOutON_OFF", 1, lval);
@@ -265,6 +316,19 @@ void setup_cont (void) {
 		lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
         decl_control_int_array ("ignore_data_file_end", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("snarea_curve_flag", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("soilzone_aet_flag", 1, lval);
+
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("snow_cloudcover_flag", 1, lval);
+
 /*
 **	file names
 */
@@ -286,6 +350,8 @@ void setup_cont (void) {
         decl_control_string ("transp_day", "transp.day");
         decl_control_string ("windspeed_day", "windspeed.day");
         decl_control_string ("humidity_day", "humidity.day");
+		decl_control_string ("AET_cbh_file", "AET.input");
+		decl_control_string ("PET_cbh_file", "PET.input");
 		decl_control_string ("pkwater_equiv_day", "pkwater_equiv.day");
         decl_control_string ("pk_depth_day", "pk_depth.day");
         decl_control_string ("snow_evap_day", "snow_evap.day");
@@ -295,6 +361,8 @@ void setup_cont (void) {
         decl_control_string ("dprst_area_dynamic", "dyndprst_area");
         decl_control_string ("dprst_depth_dynamic", "dyndprst_depth");
         decl_control_string ("dprst_frac_dynamic", "dyndprst_frac");
+		decl_control_string ("ag_frac_dynamic", "dynAg_frac");
+		decl_control_string("sro_to_dprst_ag_dynamic", "dynSro2dprst_ag.dyn");
 		decl_control_string ("snow_intcp_dynamic", "dynsnowintcp");
 		decl_control_string ("srain_intcp_dynamic", "dynsrainintcp");
 		decl_control_string ("wrain_intcp_dynamic", "dynwrainintcp");
@@ -320,6 +388,10 @@ void setup_cont (void) {
 		decl_control_string ("nsubOutBaseFileName", "nsubout_path");
 		decl_control_string ("basinOutBaseFileName", "basinout_path");
 		decl_control_string("nsegmentOutBaseFileName", "nsegmentout_path");
+		decl_control_string("dynamic_param_log_file", "dynamic_parameter.out");
+		decl_control_string("selectDatesFileName", "selectDates.in");
+		decl_control_string("precip_map_file", "precip_map.dat");
+		decl_control_string("temp_map_file", "temp_map.dat");
 /*
 **	run start and end times
 */
@@ -381,55 +453,71 @@ void setup_cont (void) {
 */
         lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-        decl_control_int_array ("nhruOutON_OFF", 1, lval);
+		decl_control_int_array ("nhruOutON_OFF", 1, lval);
         lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-        decl_control_int_array ("nhruOutVars", 1, lval);
-		lval = (long *)umalloc(sizeof (long));
+		decl_control_int_array ("nhruOutVars", 1, lval);
+        lval = (long *)umalloc(sizeof (long));
 		lval[0] = 1;
 		decl_control_int_array("nhruOut_freq", 1, lval);
+        lval = (long*)umalloc(sizeof(long));
 		lval[0] = 1;
+		decl_control_int_array("nhruOut_format", 1, lval);
+		lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
+		decl_control_int_array("nhruOutNcol", 1, lval);
+
+        lval = (long*)umalloc(sizeof(long));
+		lval[0] = 0;
 		decl_control_int_array("prms_warmup", 1, lval);
 
 
 		/*
 		**	nsub_summary
 		*/
-		lval = (long *)umalloc(sizeof(long));
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("nsubOutON_OFF", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("nsubOutON_OFF", 1, lval);
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("nsubOutVars", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("nsubOutVars", 1, lval);
+        lval = (long *)umalloc(sizeof (long));
 		lval[0] = 1;
 		decl_control_int_array("nsubOut_freq", 1, lval);
+        lval = (long*)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("nsubOut_format", 1, lval);
 
 		/*
 		**	basin_summary
 		*/
-		lval = (long *)umalloc(sizeof(long));
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("basinOutON_OFF", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("basinOutON_OFF", 1, lval);
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("basinOutVars", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("basinOutVars", 1, lval);
+        lval = (long *)umalloc(sizeof (long));
 		lval[0] = 1;
 		decl_control_int_array("basinOut_freq", 1, lval);
-
+        lval = (long*)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("basinOut_format", 1, lval);
 		/*
 		**	nsegment_summary
 		*/
-		lval = (long *)umalloc(sizeof(long));
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("nsegmentOutON_OFF", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("nsegmentOutON_OFF", 1, lval);
+        lval = (long *)umalloc (sizeof (long));
 		lval[0] = 0;
-		decl_control_int_array("nsegmentOutVars", 1, lval);
-		lval = (long *)umalloc(sizeof(long));
+		decl_control_int_array ("nsegmentOutVars", 1, lval);
+        lval = (long *)umalloc(sizeof (long));
 		lval[0] = 1;
 		decl_control_int_array("nsegmentOut_freq", 1, lval);
+        lval = (long*)umalloc(sizeof(long));
+		lval[0] = 1;
+		decl_control_int_array("nsegmentOut_format", 1, lval);
 
 /*
 **	graphics display

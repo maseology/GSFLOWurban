@@ -17,18 +17,26 @@
 ! rain_nuse (rain_nsta) - indicies of rain stations used
 !***********************************************************************
       MODULE PRMS_XYZ_DIST
+      USE PRMS_CONSTANTS, ONLY: MONTHS_PER_YEAR
       IMPLICIT NONE
 !   Local Variables
       INTEGER, PARAMETER :: MAXLAPSE = 3
-      CHARACTER(LEN=8), SAVE :: MODNAME
+      character(len=*), parameter :: MODDESC =
+     +                               'Temp & Precip Distribution'
+      character(len=*), parameter :: MODNAME = 'xyz_dist'
+      character(len=*), parameter :: Version_xyz_dist = '2021-08-13'
       INTEGER, SAVE :: Nlapse, Temp_nsta, Rain_nsta
       INTEGER, SAVE, ALLOCATABLE :: Rain_nuse(:), Temp_nuse(:)
       DOUBLE PRECISION, SAVE :: Basin_centroid_x, Basin_centroid_y
-      DOUBLE PRECISION, SAVE :: Meantmax(12), Meantmin(12)
-      DOUBLE PRECISION, SAVE :: Temp_meanx(12), Temp_meany(12)
-      DOUBLE PRECISION, SAVE :: Rain_meanx(12), Rain_meany(12)
-      DOUBLE PRECISION, SAVE :: Temp_meanz(12), Rain_meanz(12)
-      DOUBLE PRECISION, SAVE :: Meanppt(12)
+      DOUBLE PRECISION, SAVE :: Meantmax(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Meantmin(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Temp_meanx(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Temp_meany(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Rain_meanx(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Rain_meany(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Temp_meanz(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Rain_meanz(MONTHS_PER_YEAR)
+      DOUBLE PRECISION, SAVE :: Meanppt(MONTHS_PER_YEAR)
       REAL, SAVE, ALLOCATABLE :: Precip_xyz(:)
       REAL, SAVE, ALLOCATABLE :: Temp_STAelev(:)
 ! transformed versions of these values
@@ -59,33 +67,30 @@
       REAL, SAVE, ALLOCATABLE :: PptMTH(:, :)
       !REAL, SAVE, ALLOCATABLE :: Tmax_allsnow_sta(:, :)
       !REAL, SAVE, ALLOCATABLE :: Tmax_allrain_sta(:, :)
-      REAL, SAVE :: Tmax_allsnow_dist, Tmax_allrain_dist(12)
+      REAL, SAVE :: Tmax_allsnow_dist
+      REAL, SAVE :: Tmax_allrain_dist(MONTHS_PER_YEAR)
       END MODULE PRMS_XYZ_DIST
 
 !***********************************************************************
 !     Main xyz_dist routine
 !***********************************************************************
       INTEGER FUNCTION xyz_dist()
-      USE PRMS_MODULE, ONLY: Process, Save_vars_to_file,
-     &    Init_vars_from_file
+      USE PRMS_CONSTANTS, ONLY: RUN, SETDIMENS, DECL, INIT
+      USE PRMS_MODULE, ONLY: Process_flag
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: xyzdecl, xyzinit, xyzrun, xyzsetdims
-      EXTERNAL :: xyz_restart
 !***********************************************************************
       xyz_dist = 0
 
-      IF ( Process(:3)=='run' ) THEN
+      IF ( Process_flag==RUN ) THEN
         xyz_dist = xyzrun()
-      ELSEIF ( Process(:7)=='setdims' ) THEN
+      ELSEIF ( Process_flag==SETDIMENS ) THEN
         xyz_dist = xyzsetdims()
-      ELSEIF ( Process(:4)=='decl' ) THEN
+      ELSEIF ( Process_flag==DECL ) THEN
         xyz_dist = xyzdecl()
-      ELSEIF ( Process(:4)=='init' ) THEN
-        IF ( Init_vars_from_file==1 )  CALL xyz_restart(1)
+      ELSEIF ( Process_flag==INIT ) THEN
         xyz_dist = xyzinit()
-      ELSEIF ( Process(:5)=='clean' ) THEN
-        IF ( Save_vars_to_file==1 ) CALL xyz_restart(0)
       ENDIF
 
       END FUNCTION xyz_dist
@@ -123,22 +128,16 @@
 !     hru_elev, hru_area
 !***********************************************************************
       INTEGER FUNCTION xyzdecl()
+      USE PRMS_MODULE, ONLY: Nhru, Nrain, Ntemp
       USE PRMS_XYZ_DIST
-      USE PRMS_MODULE, ONLY: Nhru, Ntemp, Nrain
       IMPLICIT NONE
 ! Functions
       INTEGER, EXTERNAL :: declparam, declvar
-      EXTERNAL read_error, print_module
-! Local Variables
-      CHARACTER(LEN=80), SAVE :: Version_xyz_dist
+      EXTERNAL :: read_error, print_module
 !***********************************************************************
       xyzdecl = 0
 
-      Version_xyz_dist =
-     +'xyz_dist.f 2016-07-22 17:22:00Z'
-      CALL print_module(Version_xyz_dist,
-     +                  'Temp & Precip Distribution  ', 77)
-      MODNAME = 'xyz_dist'
+      CALL print_module(MODDESC, MODNAME, Version_xyz_dist)
 
       IF ( declvar(MODNAME, 'is_rain_day', 'one', 1, 'integer',
      +     'Flag to indicate if it is raining anywhere in the basin',
@@ -160,18 +159,18 @@
      +     Tmin_rain_sta)/=0 ) CALL read_error(3, 'tmin_rain_sta')
 
 ! declare parameters
-      ALLOCATE ( Adjust_snow(Nrain,12) )
+      ALLOCATE ( Adjust_snow(Nrain,MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'adjust_snow', 'nrain,nmonths', 'real',
-     +     '-0.4', '-0.5', '0.5',
+     +     '-0.4', '-0.5', '3.0',
      +     'Monthly (January to December) snow downscaling adjustment'//
      +     ' factor for each precipitation measurement station',
      +     'Monthly (January to December) snow downscaling adjustment'//
      +     ' factor for each precipitation measurement station',
      +     'decimal fraction')/=0 ) CALL read_error(1, 'adjust_snow')
 
-      ALLOCATE ( Adjust_rain(Nrain,12) )
+      ALLOCATE ( Adjust_rain(Nrain,MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'adjust_rain', 'nrain,nmonths', 'real',
-     +     '-0.4', '-0.5', '0.5',
+     +     '-0.4', '-0.5', '3.0',
      +     'Monthly (January to December) rain downscaling adjustment'//
      +     ' factor for each precipitation measurement station',
      +     'Monthly (January to December) rain downscaling adjustment'//
@@ -193,7 +192,7 @@
      +     'Latitude (Y) for each HRU in albers projection',
      +     'meters')/=0 ) CALL read_error(1, 'hru_y')
 
-      ALLOCATE ( Max_lapse(MAXLAPSE,12) )
+      ALLOCATE ( Max_lapse(MAXLAPSE,MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'max_lapse', 'nlapse,nmonths', 'real',
      +     '0.0', '-100.0', '100.0',
      +     'Monthly maximum temperature lapse rate for each direction',
@@ -201,7 +200,7 @@
      +     ' lapse rate for each direction (X, Y, and Z)',
      +     'none')/=0 ) CALL read_error(1, 'max_lapse')
 
-      ALLOCATE ( Min_lapse(MAXLAPSE,12) )
+      ALLOCATE ( Min_lapse(MAXLAPSE,MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'min_lapse', 'nlapse,nmonths', 'real',
      +     '0.0', '-100.0', '100.0',
      +     'Monthly minimum temperature lapse rate for each direction',
@@ -209,7 +208,7 @@
      +     ' lapse rate for each direction (X, Y, and Z)',
      +     'none')/=0 ) CALL read_error(1, 'min_lapse')
 
-      ALLOCATE ( Ppt_lapse(MAXLAPSE,12) )
+      ALLOCATE ( Ppt_lapse(MAXLAPSE,MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'ppt_lapse', 'nlapse,nmonths', 'real',
      +     '0.0', '-10.0', '10.0',
      +     'Precipitation lapse rate',
@@ -287,7 +286,7 @@
      +     ' (0=station not used; 1=station used)',
      +     'none')/=0 ) CALL read_error(1, 'psta_freq_nuse')
 
-      ALLOCATE ( TmaxMTH(Ntemp, 12) )
+      ALLOCATE ( TmaxMTH(Ntemp, MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'tsta_month_max', 'ntemp,nmonths',
      +     'real',
      +     '0.0', '-100.0', '100.0',
@@ -297,7 +296,7 @@
      +     ' temperature at each air-temperature-measurement station',
      +     'temp_units')/=0 ) CALL read_error(1, 'tsta_month_max')
 
-      ALLOCATE ( TminMTH(Ntemp, 12) )
+      ALLOCATE ( TminMTH(Ntemp, MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'tsta_month_min', 'ntemp,nmonths',
      +     'real',
      +     '0.0', '-100.0', '100.0',
@@ -307,7 +306,7 @@
      +     ' temperature at each air-temperature-measurement station',
      +     'temp_units')/=0 ) CALL read_error(1, 'tsta_month_min')
 
-      ALLOCATE ( PptMTH(Nrain, 12) )
+      ALLOCATE ( PptMTH(Nrain, MONTHS_PER_YEAR) )
       IF ( declparam(MODNAME, 'psta_month_ppt', 'nrain,nmonths',
      +     'real',
      +     '0.0', '0.0', '20.0',
@@ -415,7 +414,7 @@
      +     ' 2=meters to feet)',
      +     'none')/=0 ) CALL read_error(1, 'conv_flag')
 
-      !ALLOCATE ( Tmax_allrain_sta(Nrain,12) )
+      !ALLOCATE ( Tmax_allrain_sta(Nrain,MONTHS_PER_YEAR) )
       ! IF ( declparam(MODNAME, 'tmax_allrain_sta', 'nrain,nmonths',
       !+     'real', '38.0', '-8.0', '45.0',
       !+     'Precipitation is rain if HRU max temperature >= this value',
@@ -425,7 +424,7 @@
       !+     ' precipitation is rain',
       !+     'temp_units')/=0 ) CALL read_error(1, 'tmax_allrain_sta')
 
-      !ALLOCATE ( Tmax_allsnow_sta(Nrain,12) )
+      !ALLOCATE ( Tmax_allsnow_sta(Nrain,MONTHS_PER_YEAR) )
       ! IF ( declparam(MODNAME, 'tmax_allsnow_sta', 'nrain,nmonths',
       !+     'real', '32.0', '-10.0', '40.0',
       !+     'Maximum temperature when precipitation is all snow',
@@ -460,33 +459,31 @@
 !     xyzinit - Initialize xyz_dist module - get parameter values,
 !***********************************************************************
       INTEGER FUNCTION xyzinit()
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, FEET2METERS
+      USE PRMS_MODULE, ONLY: Nhru, Nrain, Ntemp, Inputerror_flag
       USE PRMS_XYZ_DIST
-      USE PRMS_MODULE, ONLY: Nhru, Inputerror_flag, Ntemp, Nrain,
-     +    Init_vars_from_file
       USE PRMS_BASIN, ONLY: Hru_area, Basin_area_inv,
-     +    Hru_elev, Active_hrus, Hru_route_order, FEET2METERS
+     +    Hru_elev, Active_hrus, Hru_route_order
       USE PRMS_CLIMATEVARS, ONLY: Psta_elev, Tsta_elev
       IMPLICIT NONE
 ! Functions
-      INTRINSIC DBLE
+      INTRINSIC :: DBLE
       INTEGER, EXTERNAL :: getparam
-      EXTERNAL mean_by_month, read_error
+      EXTERNAL :: mean_by_month, read_error
 ! Local Variables
       INTEGER :: i, m, ii, ierr
 !***********************************************************************
       xyzinit = 0
 
 ! Initialize declared variables
-      IF ( Init_vars_from_file==0 ) THEN
-        Is_rain_day = 0
-        Tmax_rain_sta = 0.0
-        Tmin_rain_sta = 0.0
-      ENDIF
+      Is_rain_day = 0
+      Tmax_rain_sta = 0.0
+      Tmin_rain_sta = 0.0
 
-      IF ( getparam(MODNAME, 'adjust_rain', Nrain*12, 'real',
+      IF ( getparam(MODNAME, 'adjust_rain',Nrain*MONTHS_PER_YEAR,'real',
      +     Adjust_rain)/=0 ) CALL read_error(2, 'adjust_rain')
 
-      IF ( getparam(MODNAME, 'adjust_snow', Nrain*12, 'real',
+      IF ( getparam(MODNAME, 'adjust_snow',Nrain*MONTHS_PER_YEAR,'real',
      +     Adjust_snow)/=0 ) CALL read_error(2, 'adjust_snow')
 
       IF ( getparam (MODNAME, 'solrad_elev', 1, 'real', Solrad_elev)
@@ -498,13 +495,13 @@
       IF ( getparam(MODNAME, 'hru_y', Nhru, 'real', MRUy)
      +     /=0 ) CALL read_error(2, 'hru_y')
 
-      IF ( getparam(MODNAME, 'max_lapse', MAXLAPSE*12, 'real',
+      IF ( getparam(MODNAME,'max_lapse',MAXLAPSE*MONTHS_PER_YEAR,'real',
      +     Max_lapse)/=0 ) CALL read_error(2, 'max_lapse')
 
-      IF ( getparam(MODNAME, 'min_lapse', MAXLAPSE*12, 'real',
+      IF ( getparam(MODNAME,'min_lapse',MAXLAPSE*MONTHS_PER_YEAR,'real',
      +     Min_lapse)/=0 ) CALL read_error(2, 'min_lapse')
 
-      IF ( getparam(MODNAME, 'ppt_lapse', MAXLAPSE*12, 'real',
+      IF ( getparam(MODNAME,'ppt_lapse',MAXLAPSE*MONTHS_PER_YEAR,'real',
      +     Ppt_lapse)/=0 ) CALL read_error(2, 'ppt_lapse')
 
       IF ( getparam(MODNAME, 'tsta_x', Ntemp, 'real', Temp_STAx)
@@ -528,14 +525,14 @@
       IF ( getparam(MODNAME, 'psta_freq_nuse', Nrain, 'integer',
      +     Psta_freq_nuse)/=0 ) CALL read_error(2, 'psta_freq_nuse')
 
-      IF ( getparam(MODNAME, 'tsta_month_min', Ntemp*12, 'real',
-     +     TminMTH)/=0 ) CALL read_error(2, 'tsta_month_min')
+      IF ( getparam(MODNAME, 'tsta_month_min', Ntemp*MONTHS_PER_YEAR,
+     +     'real', TminMTH)/=0 ) CALL read_error(2, 'tsta_month_min')
 
-      IF ( getparam(MODNAME, 'tsta_month_max', Ntemp*12, 'real',
-     +     TmaxMTH)/=0 ) CALL read_error(2, 'tsta_month_max')
+      IF ( getparam(MODNAME, 'tsta_month_max', Ntemp*MONTHS_PER_YEAR,
+     +     'real', TmaxMTH)/=0 ) CALL read_error(2, 'tsta_month_max')
 
-      IF ( getparam(MODNAME, 'psta_month_ppt', Nrain*12, 'real',
-     +     PptMTH)/=0 ) CALL read_error(2, 'psta_month_ppt')
+      IF ( getparam(MODNAME, 'psta_month_ppt', Nrain*MONTHS_PER_YEAR,
+     +     'real', PptMTH)/=0 ) CALL read_error(2, 'psta_month_ppt')
 
       IF ( getparam(MODNAME, 'z_add', 1, 'real', Z_add)
      +     /=0 ) CALL read_error(2, 'z_add')
@@ -576,12 +573,12 @@
       IF ( getparam(MODNAME, 'conv_flag', 1, 'integer', Conv_flag)
      +     /=0 ) CALL read_error(2, 'conv_flag')
 
-      ! IF ( getparam(MODNAME, 'tmax_allrain_sta', Nrain*12, 'real',
+      ! IF ( getparam(MODNAME, 'tmax_allrain_sta', Nrain*MONTHS_PER_YEAR, 'real',
       !+     Tmax_allrain_sta)/=0 ) CALL read_error(2, 'tmax_allrain_sta')
-      ! IF ( getparam(MODNAME, 'tmax_allsnow_sta', Nrain*12, 'real',
+      ! IF ( getparam(MODNAME, 'tmax_allsnow_sta', Nrain*MONTHS_PER_YEAR, 'real',
       !+     Tmax_allsnow_sta)/=0 ) CALL read_error(2, 'tmax_allsnow_sta')
 
-      IF ( getparam(MODNAME, 'tmax_allrain_dist', 12, 'real',
+      IF ( getparam(MODNAME, 'tmax_allrain_dist',MONTHS_PER_YEAR,'real',
      +   Tmax_allrain_dist)/=0 ) CALL read_error(2, 'tmax_allrain_dist')
 
       IF ( getparam(MODNAME, 'tmax_allsnow_dist', 1, 'real',
@@ -601,7 +598,7 @@
 !
 ! convert elevations from feet to meters
 !
-      IF ( Conv_flag==1 ) THEN
+      IF ( Conv_flag==ACTIVE ) THEN
         DO i = 1, Nhru
           MRUelev(i) = Hru_elev(i)*FEET2METERS
         ENDDO
@@ -675,7 +672,7 @@
 !
 ! calculate the station mean by month
 !
-      DO m = 1, 12
+      DO m = 1, MONTHS_PER_YEAR
         CALL mean_by_month(PptMTH(1, m), TminMTH(1, m), TmaxMTH(1, m),
      +                     Meanppt(m), Meantmax(m), Meantmin(m),
      +                     Rain_meanx(m), Rain_meany(m), Rain_meanz(m),
@@ -691,8 +688,8 @@
 !               Outputs a daily max and min Temperature by HRU elevation
 !***********************************************************************
       INTEGER FUNCTION xyzrun()
+      USE PRMS_MODULE, ONLY: Nowmonth
       USE PRMS_XYZ_DIST
-      USE PRMS_SET_TIME, ONLY: Nowmonth
       USE PRMS_OBS, ONLY: Rain_code
       IMPLICIT NONE
 ! Functions
@@ -719,24 +716,24 @@
 !***********************************************************************
       SUBROUTINE xyz_temp_run(Max_lapse, Min_lapse, Meantmax, Meantmin,
      +                        Temp_meanx, Temp_meany, Temp_meanz)
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, DNEARZERO, ACTIVE, GLACIER
+      USE PRMS_MODULE, ONLY: Glacier_flag, Nrain
       USE PRMS_XYZ_DIST, ONLY: MRUx, MRUy, Tmax_rain_sta, Solradelev,
      +    Tmin_rain_sta, Temp_nuse, Tmin_add, Tmin_div, Tmax_add,
      +    Tmax_div, Temp_nsta, X_div, Y_div, Z_div, X_add, Y_add, Z_add,
      +    Temp_STAx, Temp_STAy, Basin_centroid_y, Basin_centroid_x,
      +    MAXLAPSE, Pstaelev, Pstax, Pstay, MRUelev, Temp_STAelev
-      USE PRMS_MODULE, ONLY: Nrain
       USE PRMS_BASIN, ONLY: Basin_area_inv, Hru_area, Active_hrus,
-     +    DNEARZERO, Hru_route_order
+     +    Hru_route_order, Hru_type, Hru_elev_meters
       USE PRMS_CLIMATEVARS, ONLY: Solrad_tmax, Solrad_tmin, Basin_temp,
      +    Basin_tmax, Basin_tmin, Tmaxf, Tminf, Tminc, Tmaxc, Tavgf,
      +    Tavgc, Tmin_aspect_adjust, Tmax_aspect_adjust
       USE PRMS_OBS, ONLY: Tmax, Tmin
-      USE PRMS_SET_TIME, ONLY: Nowmonth
+      USE PRMS_MODULE, ONLY: Nowmonth
       IMPLICIT NONE
 ! Functions
-      INTRINSIC ABS, SNGL, DBLE
-      EXTERNAL temp_set
-      REAL, EXTERNAL :: c_to_f
+      INTRINSIC :: ABS, SNGL, DBLE
+      EXTERNAL :: temp_set
 ! Arguments
 !   Declared Parameters
       REAL, INTENT(IN) :: Max_lapse(MAXLAPSE), Min_lapse(MAXLAPSE)
@@ -870,14 +867,14 @@
 !  Compute maximum temperature at XY centroid of basin at the elevation
 !  of the solrad station used to develop the DD solrad curves.
 !
-      Solrad_tmax = ((maxlapse1*Basin_centroid_x)+
+      Solrad_tmax = SNGL( ((maxlapse1*Basin_centroid_x)+
      +              (maxlapse2*Basin_centroid_y)+
      +              (maxlapse3*Solradelev+intmax))*DBLE(Tmax_div)
-     +              - DBLE(Tmax_add)
-      Solrad_tmin = ((minlapse1*Basin_centroid_x)+
+     +              - DBLE(Tmax_add) )
+      Solrad_tmin = SNGL( ((minlapse1*Basin_centroid_x)+
      +              (minlapse2*Basin_centroid_y)+
      +              (minlapse3*Solradelev+intmin))*DBLE(Tmin_div)
-     +              - DBLE(Tmin_add)
+     +              - DBLE(Tmin_add) )
 
 !
 !  Compute temperatures at distribution stations.
@@ -907,6 +904,12 @@
 
       DO ii = 1, Active_hrus
         i = Hru_route_order(ii)
+        IF ( Glacier_flag==ACTIVE ) THEN
+          ! glacier module may have changed Hru_elev_meters
+          IF ( Hru_type(i)==GLACIER )
+     +         MRUelev(i) = (Hru_elev_meters(i)+Z_add)/Z_div
+        ENDIF
+
 !
 !  At this point, all temperatures are in the units
 !  of the temperatures in the data file.
@@ -952,24 +955,25 @@
 
       SUBROUTINE xyz_rain_run(Ppt_lapse, Rain_meanx, Rain_meany,
      +                        Rain_meanz, Meanppt, Rain_code)
+      USE PRMS_CONSTANTS, ONLY: ACTIVE, OFF, NEARZERO, DNEARZERO,
+     +    MM2INCH, MM
+      USE PRMS_MODULE, ONLY: Nowmonth, Nrain
       USE PRMS_XYZ_DIST, ONLY: MRUx, MRUy, Rain_STAx, Rain_STAy,
      +    Rain_nuse, Ppt_add, Ppt_div, Rain_nsta, Tmax_rain_sta,
      +    Tmin_rain_sta, Is_rain_day, Psta_freq_nuse, X_div, Y_div,
      +    Z_div, X_add, Y_add, Z_add, Precip_xyz, MAXLAPSE, MRUelev,
      +    Tmax_allsnow_dist, Tmax_allrain_dist, Adjust_snow, Adjust_rain
-      USE PRMS_MODULE, ONLY: Nrain
       USE PRMS_BASIN, ONLY: Hru_area, Basin_area_inv, Active_hrus,
-     +    Hru_route_order, NEARZERO, DNEARZERO, MM2INCH
+     +    Hru_route_order
       USE PRMS_CLIMATEVARS, ONLY: Tmaxf, Tminf, Newsnow, Pptmix,
      +    Hru_ppt, Hru_rain, Hru_snow, Basin_rain,
      +    Basin_ppt, Prmx, Basin_snow, Psta_elev, Basin_obs_ppt,
      +    Precip_units, Tmax_allsnow_f, Adjmix_rain, Tmax_allrain_f
-      USE PRMS_SET_TIME, ONLY: Nowmonth
       USE PRMS_OBS, ONLY: Precip, Rain_day
       IMPLICIT NONE
 ! Functions
-      INTRINSIC ABS, SNGL, DBLE
-      EXTERNAL precip_form
+      INTRINSIC :: ABS, SNGL, DBLE
+      EXTERNAL :: precip_form
 ! Arguments
 !   Declared Parameters
       INTEGER, INTENT(IN) :: Rain_code
@@ -992,28 +996,28 @@
 ! Code to check the rain_code parameter to determine if it is
 ! raining in the basin.
 !
-      Is_rain_day = 0
+      Is_rain_day = OFF
       IF ( Rain_code==1 ) THEN
         DO j = 1, Rain_nsta
           i = Rain_nuse(j)
-          IF ( Precip(i)>0.0 ) Is_rain_day = 1
+          IF ( Precip(i)>0.0 ) Is_rain_day = ACTIVE
         ENDDO
 
       ELSEIF ( Rain_code==2 ) THEN
         DO i = 1, Nrain
-          IF ( Precip(i)>0.0 ) Is_rain_day = 1
+          IF ( Precip(i)>0.0 ) Is_rain_day = ACTIVE
         ENDDO
 
       ELSEIF ( Rain_code==3 ) THEN
-        Is_rain_day = 1
+        Is_rain_day = ACTIVE
 
       ELSEIF ( Rain_code==4 ) THEN
-        IF ( Rain_day==1 ) Is_rain_day = 1
+        IF ( Rain_day==1 ) Is_rain_day = ACTIVE
 
       ELSEIF ( Rain_code==5 ) THEN
         DO i = 1, Nrain
           IF ( Psta_freq_nuse(i)==1 ) THEN
-            IF ( Precip(i)>0.0 ) Is_rain_day = 1
+            IF ( Precip(i)>0.0 ) Is_rain_day = ACTIVE
           ENDIF
         ENDDO
       ENDIF
@@ -1133,14 +1137,14 @@
       sum_obs = 0.0D0
       DO ii = 1, Active_hrus
         i = Hru_route_order(ii)
-        Pptmix(i) = 0
-        Newsnow(i) = 0
+        Pptmix(i) = OFF
+        Newsnow(i) = OFF
         Hru_ppt(i) = 0.0
         Hru_rain(i) = 0.0
         Hru_snow(i) = 0.0
         Prmx(i) = 0.0
 
-        IF ( Is_rain_day/=0 ) THEN
+        IF ( Is_rain_day==ACTIVE ) THEN
           ppt = (Ppt_lapse(1)*MRUx(i)) + (Ppt_lapse(2)*MRUy(i)) +
      +          (Ppt_lapse(3)*MRUelev(i)) + SNGL( intppt )
 
@@ -1148,7 +1152,7 @@
 
 !******Ignore small amounts of precipitation on HRU
           IF ( ppt>NEARZERO ) THEN
-            IF ( Precip_units==1 ) ppt = ppt*MM2INCH
+            IF ( Precip_units==MM ) ppt = ppt*MM2INCH
             CALL precip_form(ppt, Hru_ppt(i), Hru_rain(i),
      +           Hru_snow(i), Tmaxf(i), Tminf(i), Pptmix(i),
      +           Newsnow(i), Prmx(i), Tmax_allrain_f(i,Nowmonth), 1.0,
@@ -1172,14 +1176,15 @@
      +                          Meantmax, Meantmin, Rain_meanx,
      +                          Rain_meany, Rain_meanz, Temp_meanx,
      +                          Temp_meany, Temp_meanz)
+      USE PRMS_MODULE, ONLY: Ntemp, Nrain
       USE PRMS_XYZ_DIST, ONLY: Rain_nsta, Rain_nuse, Temp_nsta,
      +    Temp_nuse, Rain_STAx, Rain_STAy, Temp_STAx, Tmax_div,
      +    Temp_STAy, Ppt_add, Ppt_div, Tmin_add, Tmin_div, Tmax_add,
      +    X_div, Y_div, Z_div, X_add, Y_add, Z_add, Temp_STAelev
-      USE PRMS_MODULE, ONLY: Ntemp, Nrain
       USE PRMS_CLIMATEVARS, ONLY: Psta_elev
       IMPLICIT NONE
-      INTRINSIC DBLE
+! Functions
+      INTRINSIC :: DBLE
 ! Arguments
       REAL, INTENT(IN) :: PptMTH(Nrain), TminMTH(Ntemp), TmaxMTH(Ntemp)
       DOUBLE PRECISION, INTENT(OUT) :: Meanppt, Meantmax, Meantmin
@@ -1251,30 +1256,3 @@
       Temp_meanz = (Temp_meanz+Z_add)/DBLE(Z_div)
 
       END SUBROUTINE mean_by_month
-
-!***********************************************************************
-!     xyz_restart - write or read xyz restart file
-!***********************************************************************
-      SUBROUTINE xyz_restart(In_out)
-      USE PRMS_MODULE, ONLY: Restart_outunit, Restart_inunit
-      USE PRMS_XYZ_DIST
-      IMPLICIT NONE
-      ! Argument
-      INTEGER, INTENT(IN) :: In_out
-      EXTERNAL check_restart
-      ! Local Variable
-      CHARACTER(LEN=8) :: module_name
-!***********************************************************************
-      IF ( In_out==0 ) THEN
-        WRITE ( Restart_outunit ) MODNAME
-        WRITE ( Restart_outunit ) Is_rain_day
-        WRITE ( Restart_outunit ) Tmax_rain_sta
-        WRITE ( Restart_outunit ) Tmin_rain_sta
-      ELSE
-        READ ( Restart_inunit ) module_name
-        CALL check_restart(MODNAME, module_name)
-        READ ( Restart_inunit ) Is_rain_day
-        READ ( Restart_inunit ) Tmax_rain_sta
-        READ ( Restart_inunit ) Tmin_rain_sta
-      ENDIF
-      END SUBROUTINE xyz_restart

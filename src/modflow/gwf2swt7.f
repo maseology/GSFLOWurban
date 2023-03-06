@@ -339,7 +339,9 @@ C ------INITIALIZE ARRAYS
       DO I=1,NROW
       DO J=1,NCOL
       GL(J,I,N)=0.0
+      PCS(J,I,N)=0.0
       EST(J,I,N)=0.0
+      PCS(J,I,N)=0.0
       ESTOLD(J,I,N)=0.0
       ZC(J,I,N)=0.0
       enddo
@@ -1585,7 +1587,9 @@ C
       EST(IC,IR,K)=0.0
       IF(IBOUND(IC,IR,K).EQ.0) CYCLE
       HHNEW=HNEW(IC,IR,K)
-      EST(IC,IR,K)=GL(IC,IR,K)-HHNEW+BOTM(IC,IR,K)
+      BBOTM = BOTM(IC,IR,K)
+      IF (HHNEW.LT.BBOTM) HHNEW = BBOTM
+      EST(IC,IR,K)=GL(IC,IR,K)-HHNEW+BBOTM
       IF(EST(IC,IR,K).LT.0.0) THEN
        WRITE(IOUT,5) IR,IC,K
     5  FORMAT(' NEGATIVE EFFECTIVE STRESS VALUE AT (ROW,COL,LAY):',

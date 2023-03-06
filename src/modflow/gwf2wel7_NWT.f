@@ -50,18 +50,20 @@ C
       LOGICAL :: found
       INTEGER intchk, Iostat
       INTEGER NUMTABHOLD
+      DOUBLE PRECISION :: CLOSEZERO
 C     ------------------------------------------------------------------
       ALLOCATE(NWELLS,MXWELL,NWELVL,IWELCB,IPRWEL)
       ALLOCATE(NPWEL,IWELPB,NNPWEL,PSIRAMP,IUNITRAMP)
       ALLOCATE(NUMTAB,MAXVAL)
-      PSIRAMP = 0.10
+      PSIRAMP = 1.0E-1
       NUMTAB = 0
       MAXVAL = 1
+      CLOSEZERO = 1.0E-7
 C
 C1------IDENTIFY PACKAGE AND INITIALIZE NWELLS.
       WRITE(IOUT,1)IN
-    1 FORMAT(1X,/1X,'WEL -- WELL PACKAGE FOR NWT VERSION 1.1.3, ',
-     1' 8/01/2017 INPUT READ FROM UNIT ',I4)
+    1 FORMAT(1X,/1X,'WEL -- WELL PACKAGE FOR NWT VERSION 1.1.4, ',
+     1' 4/01/2018 INPUT READ FROM UNIT ',I4)
       NWELLS=0
       NNPWEL=0
       IUNITRAMP=IOUT
@@ -137,14 +139,14 @@ C3------READ AUXILIARY VARIABLES AND PRINT FLAG.
          IF ( Iunitnwt.EQ.0 ) THEN
              write(IOUT,32)
          ELSE
-           IF(PSIRAMP.LT.1.0E-5) PSIRAMP=1.0E-5
+           IF(PSIRAMP.LT.1.0E-1) PSIRAMP=1.0E-1
            IF ( IUNITRAMP.EQ.0 ) IUNITRAMP = IOUT
            WRITE(IOUT,*)
            WRITE(IOUT,9) PSIRAMP,IUNITRAMP
          END IF
       ELSE
          BACKSPACE IN
-         IF ( IUNITNWT.GT.0 )THEN
+         IF ( IUNITNWT.GT.0 .AND. PSIRAMP.LT.CLOSEZERO )THEN
            IUNITRAMP = IOUT
       WRITE(IOUT,*)' PHIRAMP WILL BE SET TO A DEFAULT VALUE OF 1.0E-5'
       WRITE(IOUT,*) ' WELLS WITH REDUCED PUMPING WILL BE '
@@ -234,6 +236,7 @@ C
       LLOC=1
       found = .false.
       option = .false.
+      text = 'WELL '
         DO
         LLOC=1
         CALL URWORD(LINE,LLOC,ISTART,ISTOP,1,I,R,IOUT,IN)
@@ -450,7 +453,7 @@ C     ------------------------------------------------------------------
       USE GLOBAL,       ONLY:IBOUND,RHS,HCOF,LBOTM,BOTM,HNEW,IOUT,DELR,
      1                       DELC
       USE GWFWELMODULE, ONLY:NWELLS,WELL,PSIRAMP,TABROW,TABCOL,TABLAY, 
-     1                       NUMTAB
+     1                       NUMTAB,NWELVL
       USE GWFNWTMODULE, ONLY: A, IA, Heps, Icell
       USE GWFUPWMODULE, ONLY: LAYTYPUPW
       USE GWFBASMODULE, ONLY: TOTIM
@@ -541,7 +544,7 @@ C     ------------------------------------------------------------------
      1                      VBVL,VBNM
       USE GWFWELMODULE,ONLY:NWELLS,IWELCB,WELL,NWELVL,WELAUX,PSIRAMP,
      1                      IUNITRAMP,IPRWEL,TABROW,TABCOL,TABLAY, 
-     2                      NUMTAB,NUMTAB
+     2                      NUMTAB
       USE GWFUPWMODULE, ONLY: LAYTYPUPW
 !External function interface
       INTERFACE 
@@ -562,7 +565,6 @@ C     ------------------------------------------------------------------
       END FUNCTION RATETERP
       END INTERFACE
       CHARACTER*16 TEXT
-      CHARACTER*20 TEXT1
       DOUBLE PRECISION RATIN,RATOUT,QQ,QSAVE,FMIN
       double precision Qp,Hh,Ttop,Bbot,dQp
       real Q
