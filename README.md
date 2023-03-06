@@ -67,6 +67,7 @@ prms/map_results.f90 | map_results_gu.f90
 prms/obs.f90 | obs_gu.f90
 prms/prms_constants.f90 | prms_constants_gu.f90
 prms/prms_time.f90 | prms_time_gu.f90
+prms/snowcomp.f90 | snowcomp_gu.f90
 prms/soilzone.f90 | soilzone_gu.f90
 prms/srunoff.f90 | srunoff_gu.f90
 prms/water_balance.f90 | water_balance_gu.f90
