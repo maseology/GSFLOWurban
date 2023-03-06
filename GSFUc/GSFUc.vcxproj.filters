@@ -186,4 +186,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\mmf\Makefile">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\src\mmf\Makefile.bak">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\src\mmf\read_line.c.bak">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="..\src\mmf\setup_cont.c.bak">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
