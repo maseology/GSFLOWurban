@@ -9,15 +9,15 @@ An urban development water balance analysis expansion to [GSFLOW: coupled ground
 
 Note that as a rule, the modification made in no way interfere with the core functionality, these are independent modules.
 
-### 2 Infiltration schemes
+### Infiltration
   - Green and Ampt approximation that allows for variable/sub-daily precipitation time-series as input
   - The SCS Curve Number (CN) methodology with antecedent moisture correction
 
 ### Groundwater
 A TOPMODEL formulation that allows the groundwater reservoir to interact with the PRMS soilzone, potentially rejecting recharge, thereby resulting in a simplified GW-SW integration. In TOPMODEL, the use of a "*topographic index*" projects which areas tend to wet first. These end up being lowland areas closer to stream channels, a good first assumption for southern Ontario. *this module is in beta mode*
 
-### Urban water balance
-Includes the ability to account for many Low Impact Design (LID) features from infiltration galleries to roof-top gardens ([see section 2.2 here](/doc/GSFU_man_Jan19.pdf))
+### Urban water balance:
+Includes the ability to account for many Low Impact Design (LID) features from infiltration galleries to roof-top gardens ([*see section 2.2 here*](/doc/GSFU_man_Jan19.pdf))
 
 
 ## Model capabilities:
